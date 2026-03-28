@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório Inteligente IA</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       APP SHELL
+  ═══════════════════════════════════════════════════════ -->
+  <div id="app">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__brand">
+        <div class="sidebar__logo">
+          <i data-lucide="brain-circuit"></i>
+        </div>
+        <div class="sidebar__brand-text">
+          <span class="sidebar__brand-name">Insight AI</span>
+          <span class="sidebar__brand-sub">Relatórios Inteligentes</span>
+        </div>
+      </div>
+
+      <nav class="sidebar__nav">
+        <span class="sidebar__nav-label">Relatórios</span>
+        <ul class="sidebar__menu" id="sidebarMenu">
+          <!-- Populated by app.js -->
+        </ul>
+      </nav>
+
+      <div class="sidebar__footer">
+        <div class="sidebar__user">
+          <div class="sidebar__avatar">JO</div>
+          <div class="sidebar__user-info">
+            <span class="sidebar__user-name">J. Oliveira</span>
+            <span class="sidebar__user-role">Analista Sênior</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="main" id="main">
+
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <div class="topbar__left">
+          <button class="topbar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="topbar__breadcrumb">
+            <span class="topbar__breadcrumb-root">Dashboard</span>
+            <i data-lucide="chevron-right"></i>
+            <span class="topbar__breadcrumb-current" id="breadcrumbCurrent">Selecione um relatório</span>
+          </div>
+        </div>
+        <div class="topbar__right">
+          <div class="topbar__date" id="topbarDate"></div>
+          <button class="topbar__btn" title="Exportar" id="btnExport" disabled>
+            <i data-lucide="download"></i>
+          </button>
+          <button class="topbar__btn" title="Atualizar dados" id="btnRefresh">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- CONTENT WRAPPER -->
+      <div class="content" id="content">
+
+        <!-- ── WELCOME STATE ── -->
+        <section class="welcome-state" id="welcomeState">
+          <div class="welcome-state__inner">
+            <div class="welcome-state__icon">
+              <i data-lucide="bar-chart-2"></i>
+            </div>
+            <h1 class="welcome-state__title">Relatório Inteligente com IA</h1>
+            <p class="welcome-state__desc">
+              Selecione um tipo de relatório no menu lateral para começar a análise.<br />
+              O sistema irá sugerir filtros, gerar insights e interpretar seus dados automaticamente.
+            </p>
+            <div class="welcome-state__chips">
+              <span class="chip chip--blue"><i data-lucide="zap"></i> Insights Automáticos</span>
+              <span class="chip chip--purple"><i data-lucide="cpu"></i> IA Simulada</span>
+              <span class="chip chip--green"><i data-lucide="bar-chart"></i> Gráficos Dinâmicos</span>
+              <span class="chip chip--orange"><i data-lucide="table"></i> Tabela Configurável</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── REPORT PANEL ── -->
+        <section class="report-panel" id="reportPanel" style="display:none;">
+
+          <!-- REPORT HEADER -->
+          <div class="report-header">
+            <div class="report-header__left">
+              <div class="report-header__icon" id="reportHeaderIcon">
+                <i data-lucide="file-bar-chart"></i>
+              </div>
+              <div>
+                <h2 class="report-header__title" id="reportHeaderTitle">--</h2>
+                <p class="report-header__subtitle" id="reportHeaderSubtitle">--</p>
+              </div>
+            </div>
+            <div class="report-header__badge" id="reportHeaderBadge"></div>
+          </div>
+
+          <!-- FILTER BAR -->
+          <div class="filter-bar card">
+            <div class="filter-bar__grid" id="filterGrid">
+              <!-- Dynamic filters injected here -->
+            </div>
+
+            <!-- AI QUESTION -->
+            <div class="filter-bar__ai-row">
+              <div class="ai-input-wrap">
+                <i data-lucide="message-square-more" class="ai-input-wrap__icon"></i>
+                <input
+                  type="text"
+                  class="ai-input"
+                  id="aiQuestion"
+                  placeholder="Faça uma pergunta em linguagem natural... ex: qual o produto mais vendido?"
+                  autocomplete="off"
+                />
+                <button class="ai-input-wrap__clear" id="aiQuestionClear" title="Limpar pergunta">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+              <div class="filter-bar__suggestions" id="aiSuggestions">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <div class="filter-bar__actions">
+              <button class="btn btn--ghost" id="btnClearFilters">
+                <i data-lucide="x-circle"></i> Limpar
+              </button>
+              <button class="btn btn--primary" id="btnGenerate">
+                <i data-lucide="sparkles"></i> Gerar Relatório
+              </button>
+            </div>
+          </div>
+
+          <!-- LOADING STATE -->
+          <div class="loading-state" id="loadingState" style="display:none;">
+            <div class="loading-state__bar">
+              <div class="loading-state__progress"></div>
+            </div>
+            <p class="loading-state__text">Analisando dados com IA...</p>
+          </div>
+
+          <!-- KPI CARDS -->
+          <div class="kpi-grid" id="kpiGrid" style="display:none;">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- INSIGHTS SECTION -->
+          <div class="section" id="insightsSection" style="display:none;">
+            <div class="section__header">
+              <div class="section__title-group">
+                <i data-lucide="lightbulb" class="section__icon section__icon--gold"></i>
+                <h3 class="section__title">Insights Inteligentes</h3>
+              </div>
+              <span class="section__badge" id="insightsBadge">0 insights</span>
+            </div>
+            <div class="insights-grid" id="insightsGrid">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- CHARTS SECTION -->
+          <div class="section" id="chartsSection" style="display:none;">
+            <div class="section__header">
+              <div class="section__title-group">
+                <i data-lucide="bar-chart-2" class="section__icon section__icon--blue"></i>
+                <h3 class="section__title">Análise Visual</h3>
+              </div>
+              <div class="chart-type-switcher" id="chartTypeSwitcher">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+            <div class="charts-grid" id="chartsGrid">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- TABLE SECTION -->
+          <div class="section" id="tableSection" style="display:none;">
+            <div class="section__header">
+              <div class="section__title-group">
+                <i data-lucide="table-2" class="section__icon section__icon--green"></i>
+                <h3 class="section__title">Dados Detalhados</h3>
+              </div>
+              <div class="table-controls">
+                <div class="search-wrap">
+                  <i data-lucide="search"></i>
+                  <input type="text" class="table-search" id="tableSearch" placeholder="Filtrar tabela..." />
+                </div>
+                <span class="table-count" id="tableCount"></span>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="dataTable">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- EXECUTIVE SUMMARY + AI RECOMMENDATIONS -->
+          <div class="summary-row" id="summaryRow" style="display:none;">
+
+            <div class="section summary-card">
+              <div class="section__header">
+                <div class="section__title-group">
+                  <i data-lucide="scroll-text" class="section__icon section__icon--purple"></i>
+                  <h3 class="section__title">Resumo Executivo</h3>
+                </div>
+              </div>
+              <div class="summary-body" id="summaryBody">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <div class="section recommendations-card">
+              <div class="section__header">
+                <div class="section__title-group">
+                  <i data-lucide="target" class="section__icon section__icon--orange"></i>
+                  <h3 class="section__title">Recomendações da IA</h3>
+                </div>
+              </div>
+              <ul class="recommendations-list" id="recommendationsList">
+                <!-- Populated dynamically -->
+              </ul>
+            </div>
+
+          </div>
+
+        </section>
+        <!-- /report-panel -->
+
+      </div>
+      <!-- /content -->
+
+    </main>
+    <!-- /main -->
+
+  </div>
+  <!-- /app -->
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast" id="toast"></div>
+
+  <!-- SCRIPTS (order matters) -->
+  <script src="js/report-config.js"></script>
+  <script src="js/insight-engine.js"></script>
+  <script src="js/chart-engine.js"></script>
+  <script src="js/report-engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
