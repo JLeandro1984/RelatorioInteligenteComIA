@@ -344,6 +344,13 @@ const App = (() => {
     document.getElementById('tableSearch')?.addEventListener('input', e => {
       ReportEngine.filterTable(e.target.value);
     });
+
+    // Reset ordem do menu
+    document.getElementById('resetMenuOrder')?.addEventListener('click', () => {
+      if (confirm('Deseja resetar a ordem dos relatórios para o padrão?')) {
+        DragDropMenu.resetMenuOrder();
+      }
+    });
   }
 
   /* ─────────────────────────────────────────────────────
@@ -382,6 +389,7 @@ const App = (() => {
     try {
       await loadData();
       buildSidebarMenu();
+      DragDropMenu.init('#sidebarMenu');
       renderTopbarDate();
       bindSidebarToggle();
       bindEvents();
