@@ -82,6 +82,12 @@ const App = (() => {
     });
 
     lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+
+    // Reinicializar drag-and-drop após construir o menu
+    if (DragDropMenu && typeof DragDropMenu.init === 'function') {
+      DragDropMenu.init('#sidebarMenu');
+      console.log('[DragDrop] Menu reinicializado');
+    }
   }
 
   function setActiveMenuItem(key) {
