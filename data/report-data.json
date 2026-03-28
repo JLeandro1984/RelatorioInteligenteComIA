@@ -1,1 +1,135 @@
+{
+  "clientes": [
+    { "id": "C001", "nome": "Grupo Alfa Tecnologia", "segmento": "Tecnologia", "cidade": "São Paulo", "estado": "SP", "ativo": true, "dataCadastro": "2021-03-15", "email": "contato@grupoalfa.com.br", "limiteCredito": 50000 },
+    { "id": "C002", "nome": "Distribuidora Beta", "segmento": "Distribuição", "cidade": "Campinas", "estado": "SP", "ativo": true, "dataCadastro": "2020-07-22", "email": "compras@dbeta.com.br", "limiteCredito": 80000 },
+    { "id": "C003", "nome": "Varejo Gama Ltda", "segmento": "Varejo", "cidade": "Belo Horizonte", "estado": "MG", "ativo": true, "dataCadastro": "2022-01-10", "email": "financeiro@varejogama.com.br", "limiteCredito": 30000 },
+    { "id": "C004", "nome": "Industria Delta S.A.", "segmento": "Indústria", "cidade": "Sorocaba", "estado": "SP", "ativo": false, "dataCadastro": "2019-11-05", "email": "compras@delta.com.br", "limiteCredito": 120000 },
+    { "id": "C005", "nome": "Pharma Epsilon", "segmento": "Farmacêutico", "cidade": "Rio de Janeiro", "estado": "RJ", "ativo": true, "dataCadastro": "2022-06-30", "email": "suprimentos@epsilon.com.br", "limiteCredito": 60000 },
+    { "id": "C006", "nome": "Agro Zeta", "segmento": "Agronegócio", "cidade": "Ribeirão Preto", "estado": "SP", "ativo": true, "dataCadastro": "2021-09-14", "email": "pedidos@agrozeta.com.br", "limiteCredito": 45000 },
+    { "id": "C007", "nome": "Construtora Eta", "segmento": "Construção", "cidade": "Curitiba", "estado": "PR", "ativo": true, "dataCadastro": "2023-02-20", "email": "materiais@eta.com.br", "limiteCredito": 70000 },
+    { "id": "C008", "nome": "Logística Theta", "segmento": "Logística", "cidade": "Santos", "estado": "SP", "ativo": true, "dataCadastro": "2020-04-12", "email": "operacoes@theta.com.br", "limiteCredito": 35000 }
+  ],
 
+  "produtos": [
+    { "id": "P001", "nome": "Notebook Pro X15", "categoria": "Eletrônicos", "marca": "TechBrand", "precoUnitario": 4800.00, "custo": 3200.00, "unidade": "UN", "ativo": true },
+    { "id": "P002", "nome": "Mouse Ergonômico Plus", "categoria": "Periféricos", "marca": "TechBrand", "precoUnitario": 189.90, "custo": 89.00, "unidade": "UN", "ativo": true },
+    { "id": "P003", "nome": "Cadeira Gamer Pro", "categoria": "Mobiliário", "marca": "ErgoSit", "precoUnitario": 1290.00, "custo": 720.00, "unidade": "UN", "ativo": true },
+    { "id": "P004", "nome": "Monitor 27\" UHD", "categoria": "Eletrônicos", "marca": "ViewMax", "precoUnitario": 2150.00, "custo": 1480.00, "unidade": "UN", "ativo": true },
+    { "id": "P005", "nome": "Teclado Mecânico RGB", "categoria": "Periféricos", "marca": "TechBrand", "precoUnitario": 349.90, "custo": 180.00, "unidade": "UN", "ativo": true },
+    { "id": "P006", "nome": "Headset Noise Cancel", "categoria": "Periféricos", "marca": "SoundX", "precoUnitario": 599.00, "custo": 310.00, "unidade": "UN", "ativo": true },
+    { "id": "P007", "nome": "Servidor Rack 2U", "categoria": "Infraestrutura", "marca": "NetCore", "precoUnitario": 18500.00, "custo": 13200.00, "unidade": "UN", "ativo": true },
+    { "id": "P008", "nome": "Switch 24 Portas", "categoria": "Infraestrutura", "marca": "NetCore", "precoUnitario": 2850.00, "custo": 1750.00, "unidade": "UN", "ativo": true },
+    { "id": "P009", "nome": "Cabo HDMI 2.1 2m", "categoria": "Acessórios", "marca": "CablePro", "precoUnitario": 59.90, "custo": 18.00, "unidade": "UN", "ativo": true },
+    { "id": "P010", "nome": "Webcam 4K Pro", "categoria": "Periféricos", "marca": "ViewMax", "precoUnitario": 480.00, "custo": 240.00, "unidade": "UN", "ativo": false }
+  ],
+
+  "estoque": [
+    { "produtoId": "P001", "quantidade": 18, "minimo": 10, "maximo": 100, "deposito": "SP-Principal", "ultimaEntrada": "2026-03-10" },
+    { "produtoId": "P002", "quantidade": 4, "minimo": 20, "maximo": 200, "deposito": "SP-Principal", "ultimaEntrada": "2026-02-28" },
+    { "produtoId": "P003", "quantidade": 7, "minimo": 5, "maximo": 50, "deposito": "SP-Principal", "ultimaEntrada": "2026-03-05" },
+    { "produtoId": "P004", "quantidade": 22, "minimo": 8, "maximo": 80, "deposito": "SP-Principal", "ultimaEntrada": "2026-03-15" },
+    { "produtoId": "P005", "quantidade": 3, "minimo": 15, "maximo": 150, "deposito": "SP-Principal", "ultimaEntrada": "2026-02-20" },
+    { "produtoId": "P006", "quantidade": 31, "minimo": 10, "maximo": 100, "deposito": "RJ-Filial", "ultimaEntrada": "2026-03-18" },
+    { "produtoId": "P007", "quantidade": 2, "minimo": 3, "maximo": 20, "deposito": "SP-Principal", "ultimaEntrada": "2026-01-25" },
+    { "produtoId": "P008", "quantidade": 14, "minimo": 5, "maximo": 40, "deposito": "SP-Principal", "ultimaEntrada": "2026-03-12" },
+    { "produtoId": "P009", "quantidade": 88, "minimo": 30, "maximo": 300, "deposito": "SP-Principal", "ultimaEntrada": "2026-03-20" },
+    { "produtoId": "P010", "quantidade": 0, "minimo": 5, "maximo": 30, "deposito": "SP-Principal", "ultimaEntrada": "2025-11-10" }
+  ],
+
+  "funcionarios": [
+    { "id": "F001", "nome": "Carlos Mendes", "setor": "Vendas", "cargo": "Gerente de Vendas", "salario": 8500.00, "admissao": "2018-04-01", "ativo": true, "cidade": "São Paulo", "estado": "SP", "avaliacao": 4.8 },
+    { "id": "F002", "nome": "Aline Souza", "setor": "Vendas", "cargo": "Representante Comercial", "salario": 4200.00, "admissao": "2020-02-15", "ativo": true, "cidade": "Campinas", "estado": "SP", "avaliacao": 4.5 },
+    { "id": "F003", "nome": "Roberto Lima", "setor": "Logística", "cargo": "Coordenador", "salario": 6000.00, "admissao": "2019-08-10", "ativo": true, "cidade": "Santos", "estado": "SP", "avaliacao": 4.2 },
+    { "id": "F004", "nome": "Simone Alves", "setor": "Financeiro", "cargo": "Analista Financeiro", "salario": 5500.00, "admissao": "2021-06-01", "ativo": true, "cidade": "São Paulo", "estado": "SP", "avaliacao": 4.7 },
+    { "id": "F005", "nome": "Marcos Pereira", "setor": "TI", "cargo": "Desenvolvedor Senior", "salario": 9200.00, "admissao": "2017-03-20", "ativo": true, "cidade": "São Paulo", "estado": "SP", "avaliacao": 4.9 },
+    { "id": "F006", "nome": "Julia Nunes", "setor": "RH", "cargo": "Analista de RH", "salario": 4800.00, "admissao": "2022-09-05", "ativo": true, "cidade": "São Paulo", "estado": "SP", "avaliacao": 4.3 },
+    { "id": "F007", "nome": "Andre Costa", "setor": "Vendas", "cargo": "Representante Comercial", "salario": 4200.00, "admissao": "2023-01-10", "ativo": true, "cidade": "Rio de Janeiro", "estado": "RJ", "avaliacao": 3.9 },
+    { "id": "F008", "nome": "Patricia Rocha", "setor": "Marketing", "cargo": "Gerente de Marketing", "salario": 7800.00, "admissao": "2019-05-14", "ativo": false, "cidade": "São Paulo", "estado": "SP", "avaliacao": 4.6 }
+  ],
+
+  "pedidos": [
+    {
+      "id": "PED001", "clienteId": "C001", "funcionarioId": "F001", "data": "2026-01-08", "status": "Entregue",
+      "itens": [
+        { "produtoId": "P001", "quantidade": 3, "precoUnitario": 4800.00 },
+        { "produtoId": "P004", "quantidade": 2, "precoUnitario": 2150.00 }
+      ]
+    },
+    {
+      "id": "PED002", "clienteId": "C002", "funcionarioId": "F002", "data": "2026-01-15", "status": "Entregue",
+      "itens": [
+        { "produtoId": "P002", "quantidade": 20, "precoUnitario": 189.90 },
+        { "produtoId": "P005", "quantidade": 15, "precoUnitario": 349.90 }
+      ]
+    },
+    {
+      "id": "PED003", "clienteId": "C003", "funcionarioId": "F002", "data": "2026-01-22", "status": "Entregue",
+      "itens": [
+        { "produtoId": "P003", "quantidade": 5, "precoUnitario": 1290.00 },
+        { "produtoId": "P002", "quantidade": 10, "precoUnitario": 189.90 }
+      ]
+    },
+    {
+      "id": "PED004", "clienteId": "C005", "funcionarioId": "F001", "data": "2026-02-03", "status": "Entregue",
+      "itens": [
+        { "produtoId": "P007", "quantidade": 1, "precoUnitario": 18500.00 },
+        { "produtoId": "P008", "quantidade": 2, "precoUnitario": 2850.00 }
+      ]
+    },
+    {
+      "id": "PED005", "clienteId": "C001", "funcionarioId": "F002", "data": "2026-02-10", "status": "Entregue",
+      "itens": [
+        { "produtoId": "P006", "quantidade": 8, "precoUnitario": 599.00 },
+        { "produtoId": "P009", "quantidade": 30, "precoUnitario": 59.90 }
+      ]
+    },
+    {
+      "id": "PED006", "clienteId": "C007", "funcionarioId": "F007", "data": "2026-02-18", "status": "Entregue",
+      "itens": [
+        { "produtoId": "P004", "quantidade": 4, "precoUnitario": 2150.00 },
+        { "produtoId": "P001", "quantidade": 2, "precoUnitario": 4800.00 }
+      ]
+    },
+    {
+      "id": "PED007", "clienteId": "C002", "funcionarioId": "F001", "data": "2026-03-01", "status": "Em Trânsito",
+      "itens": [
+        { "produtoId": "P001", "quantidade": 5, "precoUnitario": 4800.00 },
+        { "produtoId": "P005", "quantidade": 10, "precoUnitario": 349.90 }
+      ]
+    },
+    {
+      "id": "PED008", "clienteId": "C006", "funcionarioId": "F002", "data": "2026-03-05", "status": "Processando",
+      "itens": [
+        { "produtoId": "P003", "quantidade": 3, "precoUnitario": 1290.00 },
+        { "produtoId": "P006", "quantidade": 5, "precoUnitario": 599.00 }
+      ]
+    },
+    {
+      "id": "PED009", "clienteId": "C008", "funcionarioId": "F007", "data": "2026-03-12", "status": "Processando",
+      "itens": [
+        { "produtoId": "P009", "quantidade": 50, "precoUnitario": 59.90 },
+        { "produtoId": "P002", "quantidade": 8, "precoUnitario": 189.90 }
+      ]
+    },
+    {
+      "id": "PED010", "clienteId": "C001", "funcionarioId": "F001", "data": "2026-03-20", "status": "Aguardando",
+      "itens": [
+        { "produtoId": "P007", "quantidade": 2, "precoUnitario": 18500.00 },
+        { "produtoId": "P008", "quantidade": 3, "precoUnitario": 2850.00 }
+      ]
+    }
+  ],
+
+  "notasFiscais": [
+    { "id": "NF-00001", "clienteId": "C001", "pedidoId": "PED001", "data": "2026-01-09", "valor": 18700.00, "impostos": 3366.00, "status": "Autorizada", "chaveAcesso": "SP-2026-C001-0001" },
+    { "id": "NF-00002", "clienteId": "C002", "pedidoId": "PED002", "data": "2026-01-16", "valor": 9045.50, "impostos": 1628.19, "status": "Autorizada", "chaveAcesso": "SP-2026-C002-0001" },
+    { "id": "NF-00003", "clienteId": "C003", "pedidoId": "PED003", "data": "2026-01-23", "valor": 8349.00, "impostos": 1502.82, "status": "Autorizada", "chaveAcesso": "MG-2026-C003-0001" },
+    { "id": "NF-00004", "clienteId": "C005", "pedidoId": "PED004", "data": "2026-02-04", "valor": 24200.00, "impostos": 4356.00, "status": "Autorizada", "chaveAcesso": "RJ-2026-C005-0001" },
+    { "id": "NF-00005", "clienteId": "C001", "pedidoId": "PED005", "data": "2026-02-11", "valor": 6589.00, "impostos": 1186.02, "status": "Autorizada", "chaveAcesso": "SP-2026-C001-0002" },
+    { "id": "NF-00006", "clienteId": "C007", "pedidoId": "PED006", "data": "2026-02-19", "valor": 18200.00, "impostos": 3276.00, "status": "Autorizada", "chaveAcesso": "PR-2026-C007-0001" },
+    { "id": "NF-00007", "clienteId": "C002", "pedidoId": "PED007", "data": "2026-03-02", "valor": 27490.00, "impostos": 4948.20, "status": "Autorizada", "chaveAcesso": "SP-2026-C002-0002" },
+    { "id": "NF-00008", "clienteId": "C006", "pedidoId": "PED008", "data": "2026-03-06", "valor": 6865.00, "impostos": 1235.70, "status": "Pendente", "chaveAcesso": "SP-2026-C006-0001" },
+    { "id": "NF-00009", "clienteId": "C008", "pedidoId": "PED009", "data": "2026-03-13", "valor": 4511.20, "impostos": 812.02, "status": "Pendente", "chaveAcesso": "SP-2026-C008-0001" },
+    { "id": "NF-00010", "clienteId": "C001", "pedidoId": "PED010", "data": "2026-03-21", "valor": 45550.00, "impostos": 8199.00, "status": "Autorizada", "chaveAcesso": "SP-2026-C001-0003" }
+  ]
+}
