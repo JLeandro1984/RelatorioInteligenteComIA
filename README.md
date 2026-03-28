@@ -49,6 +49,7 @@
 - Toast notifications
 - Dark theme corporativo
 - Design responsivo (mobile, tablet, desktop)
+- Ícone profissional (favicon) e PWA manifest para instalação em desktop/mobile
 
 ---
 
@@ -58,6 +59,10 @@
 RelatorioInteligenteIA/
 │
 ├── index.html                    ← HTML da aplicação
+├── favicon.svg                   ← Ícone do projeto (exibido no navegador)
+├── manifest.json                 ← Configuração de PWA
+├── START_SERVER.bat              ← Script para iniciar servidor local
+├── README.md                     ← Documentação (este arquivo)
 │
 ├── css/
 │   └── styles.css                ← Design system (tokens, componentes, temas)
@@ -433,6 +438,35 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 - [ ] **Persistência** — LocalStorage para filtros favoritos
 - [ ] **Análise de Tendências** — Comparação período a período
 - [ ] **Alertas** — Notificações push quando anomalias são detectadas
+
+---
+
+## 🎨 Ícone e Branding
+
+### Favicon
+O projeto inclui um **ícone profissional** que é exibido automaticamente em:
+
+✅ **Aba do navegador** — Junto a URL (favicon)  
+✅ **Bookmarks/Favoritos** — Quando você adiciona a página  
+✅ **Histórico do navegador**  
+✅ **Tela inicial (PWA)** — Se instalar como aplicativo  
+
+### Arquivos de Branding
+
+- **`favicon.svg`** — Ícone vetorial escalável (principal)
+- **`manifest.json`** — Configuração de PWA (Progressive Web App)
+  - Permite "instalar" no desktop/mobile
+  - Define nome, cores e ícone da aplicação
+  - Adiciona cor de tema do navegador
+
+### Como o Ícone Aparece
+
+1. **Navegador de Desktop**: Aparece na aba da página
+2. **Navegador Mobile**: Aparece na aba e no histórico
+3. **PWA (Instalar)**: 
+   - Chrome/Edge: Menu → "Instalar aplicativo"
+   - Safari: Botão compartilhar → "Adicionar à Tela de Início"
+4. **Cor de Tema**: Status bar/navegação adapta-se ao azul (#4f8ef7)
 
 ---
 
