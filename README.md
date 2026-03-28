@@ -36,6 +36,7 @@
 - **Tabela interativa** com ordenação por coluna
 - **Filtros dinâmicos** conforme o tipo de relatório
 - **Pesquisa em tempo real** na tabela
+- **Drag-and-drop no menu** para reordenar relatórios (ordem persiste)
 
 ### ⚙️ Configuração Sem Limites
 - Novo relatório = novo registro em `report-config.js`
@@ -66,6 +67,7 @@ RelatorioInteligenteIA/
 │   ├── insight-engine.js         ★ Motor de IA (insights, KPIs, análise)
 │   ├── chart-engine.js           ★ Wrapper Chart.js (render gráficos)
 │   ├── report-engine.js          ★ Renderizador de componentes DOM
+│   ├── drag-drop-menu.js         ★ Drag-and-drop para reordenar menu
 │   └── app.js                    ★ Orquestrador principal
 │
 ├── data/
@@ -142,6 +144,15 @@ Clique em **"Gerar Relatório"** e aguarde:
 - **Limpar**: Botão "Limpar" reseta todos os filtros
 - **Exportar**: Botão de export (simulado, pronto para backend)
 - **Atualizar**: Recarrega dados do JSON
+
+### 7️⃣ Reordenar Menu (Drag-and-Drop)
+
+- **Arrastar**: Clique e mantenha sobre um relatório no menu, depois arraste para nova posição
+- **Drop**: Solte o mouse para reordenar — a nova ordem é salva automaticamente
+- **Persistência**: A ordem é armazenada em `localStorage` e restaurada ao recarregar
+- **Reset**: Clique no ícone ↻ ao lado de "RELATÓRIOS" para voltar à ordem padrão
+
+**Exemplo**: Se preferir "Vendas" no topo, simplesmente arraste para cima de "Clientes"!
 
 ---
 
@@ -407,6 +418,7 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 - ✅ **Lazy loading de ícones** — Lucide carregado via CDN
 - ✅ **Debouncing na tabela** — Busca otimizada
 - ✅ **Event delegation** — Menos listeners, melhor memória
+- ✅ **Drag-and-drop otimizado** — Usa HTML5 nativo, salva em localStorage
 
 ---
 
@@ -438,6 +450,12 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 - Verifique sintaxe em `report-config.js` (JSON válido)
 - Confirme que a `entidade` existe em `report-data.json`
 - Recarregue a página (Ctrl+Shift+R)
+
+### Drag-and-drop não funciona?
+- Confirme que `js/drag-drop-menu.js` está carregado
+- Tente resetar: Clique no ícone ↻ "Resetar ordem"
+- Verifique DevTools para erros no console
+- **No modo privativo/anônimo**, localStorage é desabilitado automaticamente
 
 ---
 

@@ -21,6 +21,18 @@
       padding: 60px;
     }
     
+    @media (max-width: 768px) {
+      .container {
+        padding: 30px 20px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .container {
+        padding: 20px 15px;
+      }
+    }
+    
     /* Header */
     .header {
       text-align: center;
@@ -38,6 +50,36 @@
     .header p {
       font-size: 14px;
       color: #666;
+    }
+    
+    @media (max-width: 768px) {
+      .header {
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+      }
+      
+      .header h1 {
+        font-size: 24px;
+      }
+      
+      .header p {
+        font-size: 12px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .header {
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+      }
+      
+      .header h1 {
+        font-size: 20px;
+      }
+      
+      .header p {
+        font-size: 11px;
+      }
     }
     
     /* Sections */
@@ -67,6 +109,42 @@
       text-align: justify;
     }
     
+    @media (max-width: 768px) {
+      .section h2 {
+        font-size: 18px;
+        padding-left: 10px;
+        margin-top: 20px;
+      }
+      
+      .section h3 {
+        font-size: 14px;
+        margin: 15px 0 8px;
+      }
+      
+      .section p {
+        font-size: 14px;
+        text-align: left;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .section h2 {
+        font-size: 16px;
+        padding-left: 8px;
+        margin-top: 15px;
+        margin-bottom: 15px;
+      }
+      
+      .section h3 {
+        font-size: 13px;
+        margin: 12px 0 6px;
+      }
+      
+      .section p {
+        font-size: 13px;
+      }
+    }
+    
     /* Tables */
     table {
       width: 100%;
@@ -92,6 +170,48 @@
       background: #f9f9f9;
     }
     
+    @media (max-width: 768px) {
+      table {
+        font-size: 13px;
+        margin: 15px 0;
+      }
+      
+      table th, table td {
+        padding: 8px 10px;
+      }
+      
+      /* Wrapper para scroll horizontal em mobile */
+      .table-wrapper {
+        overflow-x: auto;
+        margin: 15px -20px;
+        padding: 0 20px;
+      }
+      
+      .table-wrapper table {
+        min-width: 500px;
+        margin: 0;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      table {
+        font-size: 12px;
+      }
+      
+      table th, table td {
+        padding: 6px 8px;
+      }
+      
+      .table-wrapper {
+        margin: 10px -15px;
+        padding: 0 15px;
+      }
+      
+      .table-wrapper table {
+        min-width: 450px;
+      }
+    }
+    
     /* Code blocks */
     pre {
       background: #f4f4f4;
@@ -104,6 +224,24 @@
       color: #333;
     }
     
+    @media (max-width: 768px) {
+      pre {
+        padding: 12px;
+        font-size: 11px;
+        margin: 12px 0;
+        border-radius: 4px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      pre {
+        padding: 10px;
+        font-size: 10px;
+        margin: 10px 0;
+        border-left: 3px solid #4f8ef7;
+      }
+    }
+    
     /* Lists */
     ul, ol {
       margin-left: 30px;
@@ -112,6 +250,30 @@
     
     li {
       margin-bottom: 8px;
+    }
+    
+    @media (max-width: 768px) {
+      ul, ol {
+        margin-left: 20px;
+        margin-bottom: 12px;
+      }
+      
+      li {
+        margin-bottom: 6px;
+        font-size: 14px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      ul, ol {
+        margin-left: 15px;
+        margin-bottom: 10px;
+      }
+      
+      li {
+        margin-bottom: 5px;
+        font-size: 13px;
+      }
     }
     
     /* Highlights */
@@ -139,6 +301,23 @@
       border-radius: 4px;
     }
     
+    @media (max-width: 768px) {
+      .highlight, .info, .success {
+        padding: 10px 12px;
+        margin: 12px 0;
+        font-size: 14px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .highlight, .info, .success {
+        padding: 8px 10px;
+        margin: 10px 0;
+        font-size: 13px;
+        border-left: 3px solid;
+      }
+    }
+    
     /* Footer */
     .footer {
       margin-top: 50px;
@@ -147,6 +326,26 @@
       text-align: center;
       font-size: 12px;
       color: #999;
+    }
+    
+    @media (max-width: 768px) {
+      .footer {
+        margin-top: 40px;
+        padding-top: 20px;
+        font-size: 11px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .footer {
+        margin-top: 30px;
+        padding-top: 15px;
+        font-size: 10px;
+      }
+      
+      .footer p {
+        margin-bottom: 5px;
+      }
     }
     
     /* Print styles */
@@ -183,6 +382,7 @@
       <p>Criar uma plataforma de business intelligence com interface universal, motor de IA simulada e geração automática de insights, utilizando apenas HTML, CSS e JavaScript puro.</p>
       
       <h3>Stack Tecnológico</h3>
+      <div class="table-wrapper">
       <table>
         <tr>
           <th>Tecnologia</th>
@@ -215,6 +415,7 @@
           <td>Ícones SVG (CDN)</td>
         </tr>
       </table>
+      </div>
       
       <div class="info">
         <strong>ℹ️ Sem Frameworks:</strong> Não utiliza React, Vue, Angular, Webpack ou qualquer build tool. Código vanilla puro, 100% funcional.
@@ -260,6 +461,7 @@
       <h2>3. Métodos Mais Importantes</h2>
       
       <h3>Top 5 Métodos Críticos</h3>
+      <div class="table-wrapper">
       <table>
         <tr>
           <th>#</th>
@@ -298,6 +500,7 @@
           <td>Configuração universal de relatórios</td>
         </tr>
       </table>
+      </div>
       
       <h3>app.js — Orquestrador</h3>
       <p><strong>selectReport(key):</strong> Switcheia entre relatórios. Carrega filtros e sugestões dinâmicas.</p>
@@ -329,6 +532,7 @@
       </ol>
       
       <h3>Intenções Mapeadas</h3>
+      <div class="table-wrapper">
       <table>
         <tr>
           <th>Intenção</th>
@@ -366,6 +570,7 @@
           <td>produtos</td>
         </tr>
       </table>
+      </div>
       
       <div class="success">
         <strong>✓ Vantagem:</strong> IA 100% offline, sem API externa. Pronta para integração futura com GPT-4, Claude ou Gemini via backend.
@@ -378,6 +583,7 @@
     <div class="section page-break">
       <h2>5. Tipos de Relatórios</h2>
       
+      <div class="table-wrapper">
       <table>
         <tr>
           <th>Relatório</th>
@@ -422,6 +628,7 @@
           <td>Bar, Line, Pie</td>
         </tr>
       </table>
+      </div>
     </div>
     
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -587,6 +794,7 @@ getMeuInsight(dados) {
       <h2>10. Design System</h2>
       
       <h3>Paleta de Cores</h3>
+      <div class="table-wrapper">
       <table>
         <tr>
           <th>Cor</th>
@@ -629,6 +837,7 @@ getMeuInsight(dados) {
           <td>Destaque premium</td>
         </tr>
       </table>
+      </div>
       
       <h3>Componentes</h3>
       <ul>
