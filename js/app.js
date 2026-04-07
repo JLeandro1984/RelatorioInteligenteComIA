@@ -270,7 +270,7 @@ const App = (() => {
     el.loadingState().style.display = 'none';
 
     // KPIs
-    const kpiValues = InsightEngine.calcularKPIs(state.activeReport, state.data);
+    const kpiValues = InsightEngine.calcularKPIs(state.activeReport, state.data, state.filters);
     ReportEngine.renderKPIs(state.activeConfig, kpiValues);
 
     // Insights IA
@@ -278,7 +278,7 @@ const App = (() => {
     ReportEngine.renderInsights(insights);
 
     // Gráficos
-    const chartData = InsightEngine.getChartData(state.activeReport, state.data);
+    const chartData = InsightEngine.getChartData(state.activeReport, state.data, state.filters);
     ReportEngine.renderCharts(state.activeConfig, chartData);
 
     // Tabela
@@ -346,9 +346,11 @@ const App = (() => {
       showToast('Exportação disponível na versão com backend integrado.', 'info');
     });
 
-    // Pesquisa na tabela
+    // Pesquisa na tabela (com debounce de 200ms)
     document.getElementById('tableSearch')?.addEventListener('input', e => {
-      ReportEngine.filterTable(e.target.value);
+      const query = e.target.value;
+      clearTimeout(_searchDebounce);
+      _searchDebounce = setTimeout(() => ReportEngine.filterTable(query), 200);
     });
 
     // Reset ordem do menu
@@ -374,7 +376,8 @@ const App = (() => {
   /* ─────────────────────────────────────────────────────
      TOAST NOTIFICATION
   ───────────────────────────────────────────────────── */
-  let _toastTimer = null;
+  let _toastTimer    = null;
+  let _searchDebounce = null;
   function showToast(message, type = 'info') {
     const toast = el.toast();
     if (!toast) return;
@@ -395,7 +398,6 @@ const App = (() => {
     try {
       await loadData();
       buildSidebarMenu();
-      DragDropMenu.init('#sidebarMenu');
       renderTopbarDate();
       bindSidebarToggle();
       bindEvents();

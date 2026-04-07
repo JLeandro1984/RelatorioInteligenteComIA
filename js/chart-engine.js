@@ -268,5 +268,11 @@ const ChartEngine = (() => {
   ───────────────────────────────────────────────────── */
   applyGlobalDefaults();
 
-  return { render, destroyAll, destroyChart };
+  function resizeAll() {
+    Object.values(_instances).forEach(chart => {
+      try { chart.resize(); } catch (_) {}
+    });
+  }
+
+  return { render, destroyAll, destroyChart, resizeAll };
 })();

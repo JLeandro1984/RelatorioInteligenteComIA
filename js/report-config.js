@@ -318,6 +318,54 @@ const REPORT_CONFIGS = [
       'qual vendedor fechou mais pedidos?',
       'qual mês teve mais vendas?'
     ]
+  },
+
+  /* ──────────────────────────────────────────
+     AÇÕES COMERCIAIS
+  ────────────────────────────────────────── */
+  {
+    key: 'acoes',
+    label: 'Ações',
+    icon: 'target',
+    color: 'purple',
+    subtitle: 'Gestão e acompanhamento de ações comerciais',
+    entidade: 'acoes',
+    relacoes: [],
+
+    filtros: [
+      { campo: 'status',      label: 'Status',      tipo: 'select', opcoesDe: 'acoes.status' },
+      { campo: 'diretoria',   label: 'Diretoria',   tipo: 'select', opcoesDe: 'acoes.diretoria' },
+      { campo: 'divisao',     label: 'Divisão',     tipo: 'select', opcoesDe: 'acoes.divisao' },
+      { campo: 'responsavel', label: 'Responsável', tipo: 'select', opcoesDe: 'acoes.responsavel' }
+    ],
+
+    kpis: [
+      { key: 'totalAcoes',    label: 'Total de Ações',  icon: 'target',       cor: 'purple' },
+      { key: 'valorTotal',    label: 'Valor Total',     icon: 'dollar-sign',  cor: 'gold' },
+      { key: 'acoesPagas',    label: 'Ações Pagas',     icon: 'check-circle', cor: 'green' },
+      { key: 'acoesEmAberto', label: 'Em Aberto',       icon: 'clock',        cor: 'orange' }
+    ],
+
+    colunas: [
+      { campo: 'numAcao',     label: 'Nº Ação',      tipo: 'text' },
+      { campo: 'responsavel', label: 'Responsável',  tipo: 'text' },
+      { campo: 'cliente',     label: 'Cliente',      tipo: 'text' },
+      { campo: 'diretoria',   label: 'Diretoria',    tipo: 'badge' },
+      { campo: 'divisao',     label: 'Divisão',      tipo: 'badge' },
+      { campo: 'status',      label: 'Status',       tipo: 'statusAcao' },
+      { campo: 'valorAcao',   label: 'Valor',        tipo: 'moeda' },
+      { campo: 'dataInicial', label: 'Data Inicial', tipo: 'data' },
+      { campo: 'dataFinal',   label: 'Data Final',   tipo: 'data' }
+    ],
+
+    graficos: ['bar', 'pie'],
+
+    perguntasSugeridas: [
+      'qual diretoria tem mais valor de ações?',
+      'quais ações estão pendentes?',
+      'qual responsável tem mais ações?',
+      'qual o total de ações pagas?'
+    ]
   }
 ];
 

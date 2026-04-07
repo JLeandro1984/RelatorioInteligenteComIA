@@ -463,6 +463,72 @@ const InsightEngine = (() => {
     ].filter(Boolean);
   }
 
+  /* ─────────────────────────────────────────────────────
+     GERADOR DE INSIGHTS — AÇÕES COMERCIAIS
+  ───────────────────────────────────────────────────── */
+  function gerarInsightsAcoes(dados) {
+    const acoes      = dados.acoes || [];
+    const valorTotal = acoes.reduce((s, a) => s + a.valorAcao, 0);
+    const pagas      = acoes.filter(a => a.status === 'Pago');
+    const pendentes  = acoes.filter(a => a.status.startsWith('Aguardando'));
+    const canceladas = acoes.filter(a => a.status === 'Cancelado');
+    const recusadas  = acoes.filter(a => a.status === 'Pagamento Recusado');
+
+    const valorPorDir = {};
+    acoes.forEach(a => { valorPorDir[a.diretoria] = (valorPorDir[a.diretoria] || 0) + a.valorAcao; });
+    const topDir  = topEntry(valorPorDir);
+    const topResp = topEntry(contarPorCampo(acoes, 'responsavel'));
+
+    const hoje = new Date().toISOString().split('T')[0];
+    const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação'];
+    const atrasadas = acoes.filter(a => a.dataFinal < hoje && STATUS_ABERTO.includes(a.status));
+
+    return [
+      {
+        tipo: 'purple', icone: 'target',
+        titulo: 'Visão Geral das Ações',
+        texto: `Total de ${acoes.length} ação(ões) comercial(is) registrada(s), com valor consolidado de ${formatMoeda(valorTotal)}.`,
+        valor: formatMoeda(valorTotal)
+      },
+      pagas.length > 0 && {
+        tipo: 'success', icone: 'check-circle',
+        titulo: 'Ações Pagas',
+        texto: `${pagas.length} ação(ões) com status "Pago". Valor realizado: ${formatMoeda(pagas.reduce((s, a) => s + a.valorAcao, 0))}.`,
+        valor: `${pagas.length} paga(s)`
+      },
+      pendentes.length > 0 && {
+        tipo: 'warning', icone: 'clock',
+        titulo: 'Aguardando Aprovação ou Comprovação',
+        texto: `${pendentes.length} ação(ões) em status de espera. Verifique o fluxo de aprovação para evitar atrasos.`,
+        valor: `${pendentes.length} pendente(s)`
+      },
+      topDir && {
+        tipo: 'blue', icone: 'layers',
+        titulo: 'Diretoria com Maior Volume',
+        texto: `A diretoria "${topDir.key}" concentra o maior valor em ações comerciais no período.`,
+        valor: formatMoeda(topDir.value)
+      },
+      topResp && {
+        tipo: 'info', icone: 'user-check',
+        titulo: 'Responsável Mais Ativo',
+        texto: `${topResp.key} é o responsável com mais ações cadastradas no período.`,
+        valor: `${topResp.value} ação(ões)`
+      },
+      atrasadas.length > 0 && {
+        tipo: 'danger', icone: 'alert-triangle',
+        titulo: 'Ações com Prazo Vencido',
+        texto: `${atrasadas.length} ação(ões) com data final já ultrapassada e status ainda pendente. Requer ação imediata.`,
+        valor: `${atrasadas.length} atrasada(s)`
+      },
+      (canceladas.length + recusadas.length) > 0 && {
+        tipo: 'danger', icone: 'x-circle',
+        titulo: 'Ações Não Efetivadas',
+        texto: `${canceladas.length} ação(ões) cancelada(s) e ${recusadas.length} com pagamento recusado no período.`,
+        valor: `${canceladas.length + recusadas.length} não efetivada(s)`
+      }
+    ].filter(Boolean);
+  }
+
   function gerarInsightsVendas(dados) {
     const vendasAnalise = analisarVendas(dados);
     const { pedidosEnriquecidos, receitaTotal, ticketMedio, emAberto,
@@ -595,6 +661,20 @@ const InsightEngine = (() => {
         topP ? `O produto mais solicitado foi <strong>${topP.key}</strong> com <strong>${topP.value} unidades</strong>, sugerindo alta demanda e necessidade de manutenção de estoque.` : '',
         va.emAberto > 0 ? `Há <strong>${va.emAberto} pedido(s)</strong> ainda em processamento ou trânsito, que devem ser acompanhados pela equipe operacional.` : ''
       ].filter(Boolean);
+    },
+    acoes(dados) {
+      const acoes      = dados.acoes || [];
+      const valorTotal = acoes.reduce((s, a) => s + a.valorAcao, 0);
+      const pagas      = acoes.filter(a => a.status === 'Pago');
+      const valorPago  = pagas.reduce((s, a) => s + a.valorAcao, 0);
+      const dirs       = new Set(acoes.map(a => a.diretoria)).size;
+      return [
+        `O período conta com <strong>${acoes.length} ações comerciais</strong> registradas em <strong>${dirs} diretoria(s)</strong>, totalizando <strong>${formatMoeda(valorTotal)}</strong> em valor comprometido.`,
+        pagas.length > 0
+          ? `Das ações registradas, <strong>${pagas.length}</strong> foram efetivamente pagas, representando <strong>${formatMoeda(valorPago)}</strong> (${valorTotal > 0 ? ((valorPago / valorTotal) * 100).toFixed(1) : 0}% do total).`
+          : `Nenhuma ação foi marcada como paga até o momento. Verifique o fluxo de aprovação e liberação de verba.`,
+        `A gestão das ações exige atenção ao fluxo de aprovação e comprovação para garantir a execução dentro dos prazos e orçamentos definidos.`
+      ];
     }
   };
 
@@ -680,6 +760,24 @@ const InsightEngine = (() => {
       recs.push(`Estabeleça <strong>metas individuais por vendedor</strong> com base no histórico de pedidos e no potencial de cada carteira.`);
       recs.push(`Analise o <strong>ciclo de vendas médio</strong> e identifique gargalos no funil para aumentar a velocidade de fechamento.`);
       return recs.slice(0, 4);
+    },
+    acoes(dados) {
+      const acoes = dados.acoes || [];
+      const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação'];
+      const hoje      = new Date().toISOString().split('T')[0];
+      const pendentes = acoes.filter(a => a.status.startsWith('Aguardando'));
+      const recusadas = acoes.filter(a => a.status === 'Pagamento Recusado');
+      const atrasadas = acoes.filter(a => a.dataFinal < hoje && STATUS_ABERTO.includes(a.status));
+      const recs = [];
+      if (atrasadas.length)
+        recs.push(`<strong>${atrasadas.length} ação(ões)</strong> com data final já vencida e status pendente. Priorize a conclusão ou renegocie o prazo com o responsável.`);
+      if (pendentes.length)
+        recs.push(`<strong>${pendentes.length} ação(ões)</strong> aguardando aprovação, verba ou comprovação. Identifique o gargalo no fluxo e acione as áreas responsáveis.`);
+      if (recusadas.length)
+        recs.push(`<strong>${recusadas.length} pagamento(s) recusado(s)</strong>. Investigue os motivos e encaminhe para reprocessamento junto à área financeira.`);
+      recs.push(`Mantenha <strong>ciclos de revisão semanais</strong> das ações comprometidas para garantir alinhamento entre responsáveis e metas de diretoria.`);
+      recs.push(`Implemente <strong>alertas automáticos de vencimento</strong> para ações próximas ao prazo final, evitando descumprimentos de agenda.`);
+      return recs.slice(0, 4);
     }
   };
 
@@ -714,7 +812,8 @@ const InsightEngine = (() => {
       estoque:      gerarInsightsEstoque,
       funcionarios: gerarInsightsFuncionarios,
       notasFiscais: gerarInsightsNFs,
-      vendas:       gerarInsightsVendas
+      vendas:       gerarInsightsVendas,
+      acoes:        gerarInsightsAcoes
     }[reportKey];
 
     let insights = gerador ? gerador(dados, filtros) : [];
@@ -764,29 +863,94 @@ const InsightEngine = (() => {
     return fn ? fn(dados) : [`Revise periodicamente os dados para identificar oportunidades de melhoria.`];
   }
 
-  function calcularKPIs(reportKey, dados) {
+  /* ─────────────────────────────────────────────────────
+     FILTRO AUXILIAR — aplica os mesmos critérios usados
+     em enriquecerDados para KPIs e gráficos
+  ───────────────────────────────────────────────────── */
+  function _aplicarFiltros(reportKey, dados, filtros) {
+    if (!filtros || !Object.keys(filtros).length) return dados;
+    const d = { ...dados };
     if (reportKey === 'clientes') {
-      const va = analisarVendas(dados);
+      d.clientes = dados.clientes.filter(c => {
+        if (filtros.segmento && c.segmento !== filtros.segmento) return false;
+        if (filtros.estado   && c.estado   !== filtros.estado)   return false;
+        if (filtros.ativo !== undefined && filtros.ativo !== '' &&
+            String(c.ativo) !== filtros.ativo) return false;
+        return true;
+      });
+    } else if (reportKey === 'produtos') {
+      d.produtos = dados.produtos.filter(p => {
+        if (filtros.categoria && p.categoria !== filtros.categoria) return false;
+        if (filtros.marca     && p.marca     !== filtros.marca)     return false;
+        if (filtros.ativo !== undefined && filtros.ativo !== '' &&
+            String(p.ativo) !== filtros.ativo) return false;
+        return true;
+      });
+    } else if (reportKey === 'estoque') {
+      const ea       = analisarEstoque(dados);
+      const filtered = ea.filter(e => {
+        if (filtros.deposito    && e.deposito    !== filtros.deposito)    return false;
+        if (filtros.criticidade && e.criticidade !== filtros.criticidade) return false;
+        return true;
+      });
+      const ids = new Set(filtered.map(e => e.produtoId));
+      d.estoque = dados.estoque.filter(e => ids.has(e.produtoId));
+    } else if (reportKey === 'funcionarios') {
+      d.funcionarios = dados.funcionarios.filter(f => {
+        if (filtros.setor  && f.setor  !== filtros.setor)  return false;
+        if (filtros.estado && f.estado !== filtros.estado) return false;
+        if (filtros.ativo !== undefined && filtros.ativo !== '' &&
+            String(f.ativo) !== filtros.ativo) return false;
+        return true;
+      });
+    } else if (reportKey === 'notasFiscais') {
+      d.notasFiscais = dados.notasFiscais.filter(nf => {
+        if (filtros.status && nf.status !== filtros.status) return false;
+        if (filtros.mes    && !nf.data.startsWith(`2026-${filtros.mes}`)) return false;
+        return true;
+      });
+    } else if (reportKey === 'vendas') {
+      d.pedidos = dados.pedidos.filter(p => {
+        if (filtros.status && p.status !== filtros.status) return false;
+        if (filtros.mes    && !p.data.startsWith(`2026-${filtros.mes}`)) return false;
+        return true;
+      });
+  } else if (reportKey === 'acoes') {
+    d.acoes = (dados.acoes || []).filter(a => {
+      if (filtros.status      && a.status      !== filtros.status)      return false;
+      if (filtros.diretoria   && a.diretoria   !== filtros.diretoria)   return false;
+      if (filtros.divisao     && a.divisao     !== filtros.divisao)     return false;
+      if (filtros.responsavel && a.responsavel !== filtros.responsavel) return false;
+      return true;
+    });
+  }
+  return d;
+}
+
+  function calcularKPIs(reportKey, dados, filtros = {}) {
+    const d = _aplicarFiltros(reportKey, dados, filtros);
+    if (reportKey === 'clientes') {
+      const va = analisarVendas(d);
       return {
-        totalClientes:  dados.clientes.length,
-        clientesAtivos: dados.clientes.filter(c => c.ativo).length,
-        totalPedidos:   dados.pedidos.length,
+        totalClientes:  d.clientes.length,
+        clientesAtivos: d.clientes.filter(c => c.ativo).length,
+        totalPedidos:   d.pedidos.length,
         receitaTotal:   va.receitaTotal
       };
     }
     if (reportKey === 'produtos') {
-      const pa = analisarProdutos(dados);
+      const pa = analisarProdutos(d);
       const mm = pa.reduce((max, p) => p.margem > max ? p.margem : max, 0);
       const rec = pa.reduce((s, p) => s + p.receitaGerada, 0);
       return {
-        totalProdutos:   dados.produtos.length,
-        produtosAtivos:  dados.produtos.filter(p => p.ativo).length,
+        totalProdutos:   d.produtos.length,
+        produtosAtivos:  d.produtos.filter(p => p.ativo).length,
         maiorMargem:     `${mm.toFixed(1)}%`,
         receitaProdutos: rec
       };
     }
     if (reportKey === 'estoque') {
-      const ea = analisarEstoque(dados);
+      const ea = analisarEstoque(d);
       const val = ea.reduce((s, e) => s + e.valorEstoque, 0);
       return {
         itensEstoque:  ea.length,
@@ -796,18 +960,18 @@ const InsightEngine = (() => {
       };
     }
     if (reportKey === 'funcionarios') {
-      const ativos = dados.funcionarios.filter(f => f.ativo);
+      const ativos = d.funcionarios.filter(f => f.ativo);
       const massa  = ativos.reduce((s, f) => s + f.salario, 0);
-      const set    = new Set(dados.funcionarios.map(f => f.setor)).size;
+      const set    = new Set(d.funcionarios.map(f => f.setor)).size;
       return {
-        totalFuncionarios: dados.funcionarios.length,
+        totalFuncionarios: d.funcionarios.length,
         ativos:            ativos.length,
         setores:           set,
         massaSalarial:     massa
       };
     }
     if (reportKey === 'notasFiscais') {
-      const nfs = dados.notasFiscais;
+      const nfs = d.notasFiscais;
       return {
         totalNFs:      nfs.length,
         valorTotalNFs: nfs.reduce((s, n) => s + n.valor, 0),
@@ -816,28 +980,39 @@ const InsightEngine = (() => {
       };
     }
     if (reportKey === 'vendas') {
-      const va = analisarVendas(dados);
+      const va = analisarVendas(d);
       return {
-        totalPedidos:   dados.pedidos.length,
+        totalPedidos:   d.pedidos.length,
         receitaTotal:   va.receitaTotal,
         ticketMedio:    va.ticketMedio,
         pedidosAbertos: va.emAberto
       };
     }
+    if (reportKey === 'acoes') {
+      const acoes = d.acoes || [];
+      const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação'];
+      return {
+        totalAcoes:    acoes.length,
+        valorTotal:    acoes.reduce((s, a) => s + a.valorAcao, 0),
+        acoesPagas:    acoes.filter(a => a.status === 'Pago').length,
+        acoesEmAberto: acoes.filter(a => STATUS_ABERTO.includes(a.status)).length
+      };
+    }
     return {};
   }
 
-  function getChartData(reportKey, dados) {
+  function getChartData(reportKey, dados, filtros = {}) {
+    const d = _aplicarFiltros(reportKey, dados, filtros);
     if (reportKey === 'clientes') {
-      const seg = contarPorCampo(dados.clientes, 'segmento');
-      const va  = analisarVendas(dados);
+      const seg = contarPorCampo(d.clientes, 'segmento');
+      const va  = analisarVendas(d);
       return {
         bar:  { labels: Object.keys(va.receitaPorCliente), values: Object.values(va.receitaPorCliente), title: 'Receita por Cliente' },
         pie:  { labels: Object.keys(seg), values: Object.values(seg), title: 'Clientes por Segmento' }
       };
     }
     if (reportKey === 'produtos') {
-      const pa  = analisarProdutos(dados);
+      const pa  = analisarProdutos(d);
       const cat = {};
       pa.forEach(p => { cat[p.categoria] = (cat[p.categoria] || 0) + p.receitaGerada; });
       const sorted = pa.filter(p => p.qtdVendida > 0).sort((a, b) => b.qtdVendida - a.qtdVendida).slice(0, 8);
@@ -847,7 +1022,7 @@ const InsightEngine = (() => {
       };
     }
     if (reportKey === 'estoque') {
-      const ea  = analisarEstoque(dados);
+      const ea  = analisarEstoque(d);
       const crit = contarPorCampo(ea, 'criticidade');
       const sorted = ea.sort((a, b) => b.quantidade - a.quantidade).slice(0, 8);
       return {
@@ -856,9 +1031,9 @@ const InsightEngine = (() => {
       };
     }
     if (reportKey === 'funcionarios') {
-      const setores = contarPorCampo(dados.funcionarios.filter(f => f.ativo), 'setor');
+      const setores = contarPorCampo(d.funcionarios.filter(f => f.ativo), 'setor');
       const salPorSetor = {};
-      dados.funcionarios.filter(f => f.ativo).forEach(f => {
+      d.funcionarios.filter(f => f.ativo).forEach(f => {
         salPorSetor[f.setor] = (salPorSetor[f.setor] || 0) + f.salario;
       });
       return {
@@ -867,7 +1042,7 @@ const InsightEngine = (() => {
       };
     }
     if (reportKey === 'notasFiscais') {
-      const nfs = analisarNFs(dados);
+      const nfs = analisarNFs(d);
       const porMes = {};
       nfs.forEach(nf => {
         const mes = nf.data.substring(0, 7);
@@ -880,12 +1055,22 @@ const InsightEngine = (() => {
       };
     }
     if (reportKey === 'vendas') {
-      const va = analisarVendas(dados);
+      const va = analisarVendas(d);
       const topClientes = Object.entries(va.receitaPorCliente).sort((a,b)=>b[1]-a[1]).slice(0,6);
       const topProd = Object.entries(va.qtdPorProduto).sort((a,b)=>b[1]-a[1]).slice(0,6);
       return {
         bar:  { labels: topClientes.map(e=>e[0].split(' ')[0]), values: topClientes.map(e=>e[1]), title: 'Receita por Cliente' },
         pie:  { labels: topProd.map(e=>e[0].split(' ').slice(0,2).join(' ')), values: topProd.map(e=>e[1]), title: 'Volume por Produto' }
+      };
+    }
+    if (reportKey === 'acoes') {
+      const acoes = d.acoes || [];
+      const valorPorDir = {};
+      acoes.forEach(a => { valorPorDir[a.diretoria] = (valorPorDir[a.diretoria] || 0) + a.valorAcao; });
+      const statusCount = contarPorCampo(acoes, 'status');
+      return {
+        bar: { labels: Object.keys(valorPorDir), values: Object.values(valorPorDir), title: 'Valor por Diretoria' },
+        pie: { labels: Object.keys(statusCount), values: Object.values(statusCount), title: 'Ações por Status' }
       };
     }
     return {};

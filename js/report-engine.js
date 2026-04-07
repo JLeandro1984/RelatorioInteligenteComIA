@@ -36,7 +36,11 @@ const ReportEngine = (() => {
         'Farmacêutico':'gold','Agronegócio':'green','Construção':'orange','Logística':'gray',
         'Eletrônicos':'blue','Periféricos':'purple','Mobiliário':'gold','Infraestrutura':'cyan',
         'Acessórios':'gray',
-        'Vendas':'blue','Logística':'green','Financeiro':'gold','TI':'purple','RH':'orange','Marketing':'cyan'
+        'Vendas':'blue','Logística':'green','Financeiro':'gold','TI':'purple','RH':'orange','Marketing':'cyan',
+        // Diretorias
+        'ASE':'blue','OBT':'purple','LMV':'cyan','GRI':'green','KAM':'gold',
+        // Divisões
+        'NACIONAL':'blue','IMPORTADO':'purple','INTERNACIONAL':'orange','GERADOR':'cyan','ÚNICO':'gold'
       };
       const c = colorMap[v] || 'gray';
       return `<span class="badge badge--${c}">${v || '—'}</span>`;
@@ -62,6 +66,20 @@ const ReportEngine = (() => {
 
     statusNF: v => {
       const map = { 'Autorizada': 'green', 'Pendente': 'orange', 'Cancelada': 'red' };
+      return `<span class="badge badge--${map[v] || 'gray'}">${v || '—'}</span>`;
+    },
+
+    statusAcao: v => {
+      const map = {
+        'Pago':                            'green',
+        'Comprometido':                    'blue',
+        'Cancelado':                       'red',
+        'Pagamento Recusado':              'red',
+        'Aguardando aprovação da ação':    'orange',
+        'Aguardando Liberação de verba':   'orange',
+        'Aguardando Acordo':               'orange',
+        'Aguardando Comprovação':          'orange'
+      };
       return `<span class="badge badge--${map[v] || 'gray'}">${v || '—'}</span>`;
     },
 
@@ -152,6 +170,16 @@ const ReportEngine = (() => {
         });
     }
 
+    if (reportKey === 'acoes') {
+      rows = (dados.acoes || []).filter(a => {
+        if (filtros.status      && a.status      !== filtros.status)      return false;
+        if (filtros.diretoria   && a.diretoria   !== filtros.diretoria)   return false;
+        if (filtros.divisao     && a.divisao     !== filtros.divisao)     return false;
+        if (filtros.responsavel && a.responsavel !== filtros.responsavel) return false;
+        return true;
+      });
+    }
+
     return rows;
   }
 
@@ -233,6 +261,7 @@ const ReportEngine = (() => {
   function renderCharts(config, chartData) {
     const container = document.getElementById('chartsGrid');
     const section   = document.getElementById('chartsSection');
+    const switcher  = document.getElementById('chartTypeSwitcher');
     if (!container || !section) return;
 
     ChartEngine.destroyAll();
@@ -243,8 +272,30 @@ const ReportEngine = (() => {
     const isCurrencyChart = (title = '') =>
       /receita|valor|faturament|salari/i.test(title);
 
+    const iconMap  = { bar: 'bar-chart-2', line: 'trending-up', pie: 'pie-chart' };
+    const labelMap = { bar: 'Barras',      line: 'Linha',       pie: 'Pizza'     };
+
+    // Popula o switcher de tipo de gráfico
+    if (switcher) {
+      switcher.innerHTML = entries.map(([type], idx) => `
+        <button class="chart-type-btn${idx === 0 ? ' active' : ''}" data-type="${type}" title="${labelMap[type] || type}">
+          <i data-lucide="${iconMap[type] || 'bar-chart-2'}"></i>
+        </button>`).join('');
+
+      switcher.querySelectorAll('.chart-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switcher.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.querySelectorAll('#chartsGrid .chart-wrap').forEach(wrap => {
+            wrap.style.display = wrap.dataset.chartType === btn.dataset.type ? '' : 'none';
+          });
+          ChartEngine.resizeAll();
+        });
+      });
+    }
+
     container.innerHTML = entries.map(([type, data], idx) => `
-      <div class="chart-wrap">
+      <div class="chart-wrap" data-chart-type="${type}">
         <div class="chart-wrap__title">
           <i data-lucide="${type === 'pie' ? 'pie-chart' : type === 'line' ? 'trending-up' : 'bar-chart-2'}"></i>
           ${data.title}
