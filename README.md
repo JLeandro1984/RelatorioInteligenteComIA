@@ -31,11 +31,12 @@
 - Cálculo de **KPIs** sob demanda
 
 ### 📊 Visualização de Dados
-- **KPI Cards** com indicadores de tendência
-- **Gráficos** (bar, line, donut) com gradientes premium
+- **KPI Cards** com indicadores de tendência — **refletem os filtros ativos**
+- **Gráficos** (bar, line, donut) com gradientes premium — **refletem os filtros ativos**
+- **Switcher de tipo de gráfico** — alterna entre os tipos disponíveis por relatório
 - **Tabela interativa** com ordenação por coluna
 - **Filtros dinâmicos** conforme o tipo de relatório
-- **Pesquisa em tempo real** na tabela
+- **Pesquisa com debounce** (200 ms) na tabela
 - **Drag-and-drop no menu** para reordenar relatórios (ordem persiste)
 
 ### ⚙️ Configuração Sem Limites
@@ -421,14 +422,23 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 - ✅ **Gráficos lazy** — Destroi instância anterior antes de recriar
 - ✅ **Animações GPU** — Usar `transform` + `opacity`
 - ✅ **Lazy loading de ícones** — Lucide carregado via CDN
-- ✅ **Debouncing na tabela** — Busca otimizada
+- ✅ **Debouncing na tabela** — 200 ms de delay antes de filtrar, evita renders desnecessários
 - ✅ **Event delegation** — Menos listeners, melhor memória
 - ✅ **Drag-and-drop otimizado** — Usa HTML5 nativo, salva em localStorage
+- ✅ **Filtros consistentes** — KPIs, gráficos e tabela refletem exatamente o mesmo conjunto de dados filtrado
+- ✅ **ChartEngine.resizeAll()** — Redimensiona canvas ao alternar o tipo de gráfico visível
 
 ---
 
 ## 🔮 Roadmap e Melhorias Futuras
 
+### ✅ Concluído (06/04/2026)
+- [x] **KPIs e gráficos filtrados** — KPI cards, gráficos e insights respeitam os filtros ativos da tela
+- [x] **Switcher de tipo de gráfico** — Botões dinâmicos para alternar entre os tipos disponíveis por relatório
+- [x] **Debounce na busca** — 200 ms de debounce real na pesquisa da tabela
+- [x] **Inicialização única do DragDrop** — Removida chamada duplicada de `DragDropMenu.init`
+
+### Próximas Evoluções
 - [ ] **Integração com Backend Real** — Trocar `fetch` de JSON por API REST
 - [ ] **Integração com IA Real** — OpenAI / Claude / Gemini via backend
 - [ ] **Exportação** — PDF, Excel, CSV dos relatórios
