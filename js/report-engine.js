@@ -238,6 +238,30 @@ const ReportEngine = (() => {
 
     badge.textContent = `${insights.length} insight${insights.length > 1 ? 's' : ''}`;
 
+    const escapeHtml = value => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const renderInlineTable = table => {
+      if (!table || !Array.isArray(table.columns) || !Array.isArray(table.rows)) return '';
+      const head = table.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+      const body = table.rows.map(row => {
+        const cells = Array.isArray(row) ? row : [];
+        return `<tr>${cells.map(v => `<td>${escapeHtml(v)}</td>`).join('')}</tr>`;
+      }).join('');
+      return (
+        `<div class="ai-inline-table-wrap">` +
+        `<table class="ai-inline-table">` +
+        `<thead><tr>${head}</tr></thead>` +
+        `<tbody>${body}</tbody>` +
+        `</table>` +
+        `</div>`
+      );
+    };
+
     const iconMap = { icone: '' };
     container.innerHTML = insights.map((ins, idx) => `
       <div class="insight-card insight-card--${ins.tipo || 'info'}" style="animation-delay:${idx * 60}ms">
@@ -247,6 +271,7 @@ const ReportEngine = (() => {
         <div class="insight-card__body">
           <div class="insight-card__title">${ins.titulo}</div>
           <div class="insight-card__text">${ins.texto}</div>
+          ${renderInlineTable(ins.table)}
           ${ins.valor ? `<div class="insight-card__value">${ins.valor}</div>` : ''}
         </div>
       </div>`).join('');
@@ -272,8 +297,8 @@ const ReportEngine = (() => {
     const isCurrencyChart = (title = '') =>
       /receita|valor|faturament|salari/i.test(title);
 
-    const iconMap  = { bar: 'bar-chart-2', line: 'trending-up', pie: 'pie-chart' };
-    const labelMap = { bar: 'Barras',      line: 'Linha',       pie: 'Pizza'     };
+    const iconMap  = { bar: 'bar-chart-2', line: 'trending-up', pie: 'pie-chart', heatmap: 'grid-2x2' };
+    const labelMap = { bar: 'Barras',      line: 'Linha',       pie: 'Pizza',     heatmap: 'Heatmap'   };
 
     // Popula o switcher de tipo de gráfico
     if (switcher) {
@@ -297,11 +322,14 @@ const ReportEngine = (() => {
     container.innerHTML = entries.map(([type, data], idx) => `
       <div class="chart-wrap" data-chart-type="${type}">
         <div class="chart-wrap__title">
-          <i data-lucide="${type === 'pie' ? 'pie-chart' : type === 'line' ? 'trending-up' : 'bar-chart-2'}"></i>
+          <i data-lucide="${type === 'pie' ? 'pie-chart' : type === 'line' ? 'trending-up' : type === 'heatmap' ? 'grid-2x2' : 'bar-chart-2'}"></i>
           ${data.title}
         </div>
         <div class="chart-canvas-wrap">
-          <canvas id="chart_${idx}"></canvas>
+          ${type === 'heatmap'
+            ? `<div class="heatmap-host" id="chart_${idx}"></div>`
+            : `<canvas id="chart_${idx}"></canvas>`
+          }
         </div>
       </div>`).join('');
 
@@ -309,7 +337,11 @@ const ReportEngine = (() => {
 
     entries.forEach(([type, data], idx) => {
       const opts = { format: isCurrencyChart(data.title) ? 'currency' : 'number' };
-      ChartEngine.render(`chart_${idx}`, type, data, opts);
+      if (type === 'heatmap') {
+        HeatmapEngine.render(`chart_${idx}`, data, opts);
+      } else {
+        ChartEngine.render(`chart_${idx}`, type, data, opts);
+      }
     });
 
     section.style.display = 'block';

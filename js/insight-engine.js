@@ -54,6 +54,21 @@ const InsightEngine = (() => {
       palavrasChave: ['margem', 'lucro', 'rentabilidade', 'mais lucrativo'],
       contextos: ['produtos'],
       handler: 'getMaiorMargem'
+    },
+    {
+      id: 'itens_ativos',
+      palavrasChave: [
+        'itens ativos',
+        'liste os itens ativos',
+        'listar itens ativos',
+        'mostre os ativos',
+        'quais estao ativos',
+        'quais estão ativos',
+        'somente ativos',
+        'apenas ativos'
+      ],
+      contextos: ['clientes', 'produtos', 'funcionarios', 'estoque', 'vendas', 'notasFiscais', 'acoes'],
+      handler: 'getItensAtivos'
     }
   ];
 
@@ -233,6 +248,47 @@ const InsightEngine = (() => {
         titulo: 'Produto com Maior Margem',
         texto: `O produto com melhor margem de contribuição é:`,
         valor: `${p.nome} — ${p.margem}%`
+      };
+    },
+
+    getItensAtivos(payload) {
+      const { reportKey, dados } = payload || {};
+      if (!reportKey || !dados) return null;
+
+      let ativos = [];
+      let label = 'itens';
+
+      if (reportKey === 'clientes') {
+        ativos = (dados.clientes || []).filter(c => c.ativo).map(c => c.nome);
+        label = 'clientes';
+      } else if (reportKey === 'produtos') {
+        ativos = (dados.produtos || []).filter(p => p.ativo).map(p => p.nome);
+        label = 'produtos';
+      } else if (reportKey === 'funcionarios') {
+        ativos = (dados.funcionarios || []).filter(f => f.ativo).map(f => f.nome);
+        label = 'colaboradores';
+      } else if (reportKey === 'estoque') {
+        ativos = (analisarEstoque(dados) || []).filter(e => e.quantidade > 0).map(e => e.nomeProduto);
+        label = 'itens em estoque';
+      } else if (reportKey === 'vendas') {
+        ativos = (dados.pedidos || []).filter(p => p.status !== 'Cancelado').map(p => p.id);
+        label = 'pedidos ativos';
+      } else if (reportKey === 'notasFiscais') {
+        ativos = (dados.notasFiscais || []).filter(nf => nf.status === 'Autorizada').map(nf => nf.id);
+        label = 'NFs autorizadas';
+      } else if (reportKey === 'acoes') {
+        ativos = (dados.acoes || [])
+          .filter(a => !['Cancelado', 'Pagamento Recusado'].includes(a.status))
+          .map(a => a.numAcao);
+        label = 'ações ativas';
+      }
+
+      const exemplos = ativos.slice(0, 6).join(', ');
+      return {
+        tipo: 'info', icone: 'check-circle',
+        titulo: 'Itens Ativos',
+        texto: `Foram identificados ${ativos.length} ${label} no contexto atual.`,
+        valor: exemplos ? exemplos : 'Nenhum item ativo encontrado.'
       };
     }
   };
@@ -833,6 +889,9 @@ const InsightEngine = (() => {
             resultado = handler(analisarNFs(dados));
           } else if (intencao.handler === 'getMaiorMargem') {
             resultado = handler(analisarProdutos(dados));
+          } else if (intencao.handler === 'getItensAtivos') {
+            const d = _aplicarFiltros(reportKey, dados, filtros || {});
+            resultado = handler({ reportKey, dados: d });
           }
           if (resultado) {
             resultado._isPerguntaResult = true;
@@ -853,14 +912,16 @@ const InsightEngine = (() => {
     return insights;
   }
 
-  function gerarResumo(reportKey, dados) {
+  function gerarResumo(reportKey, dados, filtros = {}) {
+    const d = _aplicarFiltros(reportKey, dados, filtros);
     const fn = resumoTemplates[reportKey];
-    return fn ? fn(dados) : [`Dados do relatório de ${reportKey} analisados com sucesso.`];
+    return fn ? fn(d) : [`Dados do relatório de ${reportKey} analisados com sucesso.`];
   }
 
-  function gerarRecomendacoes(reportKey, dados) {
+  function gerarRecomendacoes(reportKey, dados, filtros = {}) {
+    const d = _aplicarFiltros(reportKey, dados, filtros);
     const fn = recomendacoesTemplates[reportKey];
-    return fn ? fn(dados) : [`Revise periodicamente os dados para identificar oportunidades de melhoria.`];
+    return fn ? fn(d) : [`Revise periodicamente os dados para identificar oportunidades de melhoria.`];
   }
 
   /* ─────────────────────────────────────────────────────
@@ -1001,14 +1062,103 @@ const InsightEngine = (() => {
     return {};
   }
 
+  function _monthShort(dateStr) {
+    const m = String(dateStr || '').slice(5, 7);
+    return {
+      '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
+      '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
+    }[m] || '—';
+  }
+
+  function _buildHeatmapMatrix({ title, rowTitle, rows, cols, metrics, valueGetter, defaultMetric }) {
+    const matrix = {};
+    const kpis = {};
+
+    metrics.forEach(metric => {
+      const m = rows.map((row, rIdx) => cols.map((col, cIdx) => {
+        const value = valueGetter(row, col, metric.key, rIdx, cIdx);
+        return Number(value || 0);
+      }));
+
+      matrix[metric.key] = m;
+
+      const flat = m.flat();
+      const sum = flat.reduce((s, v) => s + v, 0);
+      const avg = flat.length ? sum / flat.length : 0;
+      let max = Number.NEGATIVE_INFINITY;
+      let maxRow = rows[0] || '—';
+
+      m.forEach((line, rIdx) => {
+        line.forEach(v => {
+          if (v > max) {
+            max = v;
+            maxRow = rows[rIdx] || '—';
+          }
+        });
+      });
+
+      const fmt = metric.format || 'number';
+      const asNumber = v => new Intl.NumberFormat('pt-BR').format(v || 0);
+      const asCurrency = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(v || 0);
+      const asPercent = v => `${Number(v || 0).toFixed(1)}%`;
+
+      const formatter = fmt === 'currency' ? asCurrency : (fmt === 'percent' ? asPercent : asNumber);
+
+      kpis[metric.key] = [
+        { label: metric.kpiLabels?.[0] || 'Total', value: formatter(sum) },
+        { label: metric.kpiLabels?.[1] || 'Média', value: formatter(avg) },
+        { label: metric.kpiLabels?.[2] || 'Maior ponto', value: formatter(Number.isFinite(max) ? max : 0) },
+        { label: metric.kpiLabels?.[3] || 'Linha de destaque', value: maxRow }
+      ];
+    });
+
+    return {
+      title,
+      rowTitle,
+      rows,
+      cols,
+      metrics,
+      matrix,
+      kpis,
+      defaultMetric: defaultMetric || metrics[0]?.key
+    };
+  }
+
   function getChartData(reportKey, dados, filtros = {}) {
     const d = _aplicarFiltros(reportKey, dados, filtros);
     if (reportKey === 'clientes') {
       const seg = contarPorCampo(d.clientes, 'segmento');
       const va  = analisarVendas(d);
+      const rows = Object.keys(seg);
+      const cols = [...new Set((d.clientes || []).map(c => c.estado))].sort();
+      const bySegUf = {};
+      const creditBySegUf = {};
+
+      (d.clientes || []).forEach(c => {
+        const key = `${c.segmento}__${c.estado}`;
+        bySegUf[key] = (bySegUf[key] || 0) + 1;
+        creditBySegUf[key] = (creditBySegUf[key] || 0) + (c.limiteCredito || 0);
+      });
+
       return {
         bar:  { labels: Object.keys(va.receitaPorCliente), values: Object.values(va.receitaPorCliente), title: 'Receita por Cliente' },
-        pie:  { labels: Object.keys(seg), values: Object.values(seg), title: 'Clientes por Segmento' }
+        pie:  { labels: Object.keys(seg), values: Object.values(seg), title: 'Clientes por Segmento' },
+        heatmap: _buildHeatmapMatrix({
+          title: 'Heatmap de clientes por segmento e estado',
+          rowTitle: 'Segmento',
+          rows,
+          cols,
+          metrics: [
+            { key: 'qtd', label: 'Quantidade de clientes', format: 'number', kpiLabels: ['Total de clientes', 'Média por célula', 'Maior célula', 'Segmento destaque'] },
+            { key: 'credito', label: 'Limite de crédito (R$)', format: 'currency', kpiLabels: ['Crédito total', 'Média por célula', 'Maior célula', 'Segmento destaque'] }
+          ],
+          valueGetter: (row, col, metricKey) => {
+            const key = `${row}__${col}`;
+            if (metricKey === 'credito') return creditBySegUf[key] || 0;
+            return bySegUf[key] || 0;
+          },
+          defaultMetric: 'qtd'
+        })
       };
     }
     if (reportKey === 'produtos') {
@@ -1016,18 +1166,96 @@ const InsightEngine = (() => {
       const cat = {};
       pa.forEach(p => { cat[p.categoria] = (cat[p.categoria] || 0) + p.receitaGerada; });
       const sorted = pa.filter(p => p.qtdVendida > 0).sort((a, b) => b.qtdVendida - a.qtdVendida).slice(0, 8);
+
+      const produtoById = {};
+      (d.produtos || []).forEach(p => { produtoById[p.id] = p; });
+      const rows = sorted.slice(0, 6).map(p => p.nome.split(' ').slice(0, 2).join(' '));
+      const rowId = sorted.slice(0, 6).map(p => p.id);
+      const cols = [...new Set((d.pedidos || []).map(p => _monthShort(p.data)))];
+
+      const productMetric = {};
+      rowId.forEach(id => {
+        productMetric[id] = {};
+        cols.forEach(month => {
+          productMetric[id][month] = { units: 0, revenue: 0, cost: 0 };
+        });
+      });
+
+      (d.pedidos || []).forEach(pedido => {
+        const month = _monthShort(pedido.data);
+        (pedido.itens || []).forEach(item => {
+          if (!rowId.includes(item.produtoId)) return;
+          const prod = produtoById[item.produtoId];
+          if (!prod) return;
+          const slot = productMetric[item.produtoId][month] || { units: 0, revenue: 0, cost: 0 };
+          slot.units += item.quantidade || 0;
+          slot.revenue += (item.quantidade || 0) * (item.precoUnitario || prod.precoUnitario || 0);
+          slot.cost += (item.quantidade || 0) * (prod.custo || 0);
+          productMetric[item.produtoId][month] = slot;
+        });
+      });
+
       return {
         bar:  { labels: sorted.map(p => p.nome.split(' ').slice(0,2).join(' ')), values: sorted.map(p => p.qtdVendida), title: 'Volume de Vendas por Produto' },
-        pie:  { labels: Object.keys(cat), values: Object.values(cat), title: 'Receita por Categoria' }
+        pie:  { labels: Object.keys(cat), values: Object.values(cat), title: 'Receita por Categoria' },
+        heatmap: _buildHeatmapMatrix({
+          title: 'Heatmap de vendas por produto e período',
+          rowTitle: 'Produto',
+          rows,
+          cols,
+          metrics: [
+            { key: 'units', label: 'Unidades vendidas', format: 'number', kpiLabels: ['Total de unidades', 'Média por célula', 'Maior ponto', 'Top produto'] },
+            { key: 'revenue', label: 'Receita (R$)', format: 'currency', kpiLabels: ['Receita total', 'Média por célula', 'Pico de receita', 'Top produto'] },
+            { key: 'margin', label: 'Margem (%)', format: 'percent', kpiLabels: ['Margem acumulada', 'Margem média', 'Pico de margem', 'Top produto'] }
+          ],
+          valueGetter: (_, col, metricKey, rIdx) => {
+            const id = rowId[rIdx];
+            const slot = (productMetric[id] && productMetric[id][col]) || { units: 0, revenue: 0, cost: 0 };
+            if (metricKey === 'units') return slot.units;
+            if (metricKey === 'revenue') return slot.revenue;
+            if (slot.revenue <= 0) return 0;
+            return ((slot.revenue - slot.cost) / slot.revenue) * 100;
+          },
+          defaultMetric: 'margin'
+        })
       };
     }
     if (reportKey === 'estoque') {
       const ea  = analisarEstoque(d);
       const crit = contarPorCampo(ea, 'criticidade');
       const sorted = ea.sort((a, b) => b.quantidade - a.quantidade).slice(0, 8);
+
+      const rows = [...new Set((ea || []).map(e => e.deposito))].sort();
+      const cols = ['Crítico', 'Abaixo Mín.', 'Normal', 'Acima Máx.'];
+      const critLabel = { critico: 'Crítico', baixo: 'Abaixo Mín.', normal: 'Normal', alto: 'Acima Máx.' };
+      const map = {};
+      rows.forEach(dep => {
+        map[dep] = {};
+        cols.forEach(c => { map[dep][c] = { itens: 0, valor: 0 }; });
+      });
+      (ea || []).forEach(item => {
+        const dep = item.deposito;
+        const col = critLabel[item.criticidade] || item.criticidade;
+        if (!map[dep] || !map[dep][col]) return;
+        map[dep][col].itens += 1;
+        map[dep][col].valor += item.valorEstoque || 0;
+      });
+
       return {
         bar:  { labels: sorted.map(e => e.nomeProduto.split(' ').slice(0,2).join(' ')), values: sorted.map(e => e.quantidade), title: 'Quantidade em Estoque por Produto' },
-        pie:  { labels: Object.keys(crit).map(k => ({ critico:'Crítico',baixo:'Abaixo Mín.',normal:'Normal',alto:'Acima Máx.' }[k] || k)), values: Object.values(crit), title: 'Distribuição por Criticidade' }
+        pie:  { labels: Object.keys(crit).map(k => ({ critico:'Crítico',baixo:'Abaixo Mín.',normal:'Normal',alto:'Acima Máx.' }[k] || k)), values: Object.values(crit), title: 'Distribuição por Criticidade' },
+        heatmap: _buildHeatmapMatrix({
+          title: 'Heatmap de estoque por depósito e criticidade',
+          rowTitle: 'Depósito',
+          rows,
+          cols,
+          metrics: [
+            { key: 'itens', label: 'Itens por criticidade', format: 'number', kpiLabels: ['Total de itens', 'Média por célula', 'Maior célula', 'Depósito destaque'] },
+            { key: 'valor', label: 'Valor em estoque (R$)', format: 'currency', kpiLabels: ['Valor total', 'Média por célula', 'Maior célula', 'Depósito destaque'] }
+          ],
+          valueGetter: (row, col, metricKey) => map[row]?.[col]?.[metricKey] || 0,
+          defaultMetric: 'itens'
+        })
       };
     }
     if (reportKey === 'funcionarios') {
@@ -1036,9 +1264,42 @@ const InsightEngine = (() => {
       d.funcionarios.filter(f => f.ativo).forEach(f => {
         salPorSetor[f.setor] = (salPorSetor[f.setor] || 0) + f.salario;
       });
+
+      const ativos = d.funcionarios.filter(f => f.ativo);
+      const rows = [...new Set(ativos.map(f => f.setor))].sort();
+      const cols = [...new Set(ativos.map(f => f.estado))].sort();
+      const map = {};
+      rows.forEach(setor => {
+        map[setor] = {};
+        cols.forEach(uf => { map[setor][uf] = { qtd: 0, salario: 0, avaliacao: 0 }; });
+      });
+      ativos.forEach(f => {
+        map[f.setor][f.estado].qtd += 1;
+        map[f.setor][f.estado].salario += f.salario || 0;
+        map[f.setor][f.estado].avaliacao += f.avaliacao || 0;
+      });
+
       return {
         pie:  { labels: Object.keys(setores), values: Object.values(setores), title: 'Colaboradores por Setor' },
-        bar:  { labels: Object.keys(salPorSetor), values: Object.values(salPorSetor), title: 'Massa Salarial por Setor' }
+        bar:  { labels: Object.keys(salPorSetor), values: Object.values(salPorSetor), title: 'Massa Salarial por Setor' },
+        heatmap: _buildHeatmapMatrix({
+          title: 'Heatmap de colaboradores por setor e estado',
+          rowTitle: 'Setor',
+          rows,
+          cols,
+          metrics: [
+            { key: 'qtd', label: 'Colaboradores ativos', format: 'number', kpiLabels: ['Total de colaboradores', 'Média por célula', 'Maior célula', 'Setor destaque'] },
+            { key: 'salario', label: 'Massa salarial (R$)', format: 'currency', kpiLabels: ['Massa salarial', 'Média por célula', 'Maior célula', 'Setor destaque'] },
+            { key: 'avaliacao', label: 'Avaliação média', format: 'percent', kpiLabels: ['Soma de avaliação', 'Média por célula', 'Maior célula', 'Setor destaque'] }
+          ],
+          valueGetter: (row, col, metricKey) => {
+            const slot = map[row]?.[col] || { qtd: 0, salario: 0, avaliacao: 0 };
+            if (metricKey === 'qtd') return slot.qtd;
+            if (metricKey === 'salario') return slot.salario;
+            return slot.qtd ? (slot.avaliacao / slot.qtd) * 20 : 0;
+          },
+          defaultMetric: 'qtd'
+        })
       };
     }
     if (reportKey === 'notasFiscais') {
@@ -1049,18 +1310,91 @@ const InsightEngine = (() => {
         porMes[mes] = (porMes[mes] || 0) + nf.valor;
       });
       const status = contarPorCampo(nfs, 'status');
+
+      const rows = Object.keys(status);
+      const cols = [...new Set(nfs.map(nf => _monthShort(nf.data)))];
+      const map = {};
+      rows.forEach(st => {
+        map[st] = {};
+        cols.forEach(m => { map[st][m] = { qtd: 0, valor: 0, impostos: 0 }; });
+      });
+      nfs.forEach(nf => {
+        const m = _monthShort(nf.data);
+        map[nf.status][m].qtd += 1;
+        map[nf.status][m].valor += nf.valor || 0;
+        map[nf.status][m].impostos += nf.impostos || 0;
+      });
+
       return {
         bar:   { labels: Object.keys(porMes), values: Object.values(porMes), title: 'Faturamento por Mês' },
-        pie:   { labels: Object.keys(status), values: Object.values(status), title: 'NFs por Status' }
+        pie:   { labels: Object.keys(status), values: Object.values(status), title: 'NFs por Status' },
+        heatmap: _buildHeatmapMatrix({
+          title: 'Heatmap de notas fiscais por status e período',
+          rowTitle: 'Status',
+          rows,
+          cols,
+          metrics: [
+            { key: 'qtd', label: 'Quantidade de NFs', format: 'number', kpiLabels: ['Total de NFs', 'Média por célula', 'Maior célula', 'Status destaque'] },
+            { key: 'valor', label: 'Valor faturado (R$)', format: 'currency', kpiLabels: ['Faturamento total', 'Média por célula', 'Maior célula', 'Status destaque'] },
+            { key: 'impostos', label: 'Impostos (R$)', format: 'currency', kpiLabels: ['Impostos totais', 'Média por célula', 'Maior célula', 'Status destaque'] }
+          ],
+          valueGetter: (row, col, metricKey) => map[row]?.[col]?.[metricKey] || 0,
+          defaultMetric: 'valor'
+        })
       };
     }
     if (reportKey === 'vendas') {
       const va = analisarVendas(d);
       const topClientes = Object.entries(va.receitaPorCliente).sort((a,b)=>b[1]-a[1]).slice(0,6);
       const topProd = Object.entries(va.qtdPorProduto).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+      const byProduct = Object.entries(va.qtdPorProduto)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([nome]) => nome);
+      const cols = [...new Set((d.pedidos || []).map(p => _monthShort(p.data)))];
+      const produtoByNome = {};
+      (d.produtos || []).forEach(p => { produtoByNome[p.nome] = p; });
+      const map = {};
+      byProduct.forEach(nome => {
+        map[nome] = {};
+        cols.forEach(m => { map[nome][m] = { units: 0, revenue: 0, cost: 0 }; });
+      });
+      (d.pedidos || []).forEach(pedido => {
+        const month = _monthShort(pedido.data);
+        (pedido.itens || []).forEach(item => {
+          const prod = (d.produtos || []).find(p => p.id === item.produtoId);
+          const nome = prod?.nome;
+          if (!nome || !map[nome] || !map[nome][month]) return;
+          map[nome][month].units += item.quantidade || 0;
+          map[nome][month].revenue += (item.quantidade || 0) * (item.precoUnitario || 0);
+          map[nome][month].cost += (item.quantidade || 0) * (prod?.custo || 0);
+        });
+      });
+
       return {
         bar:  { labels: topClientes.map(e=>e[0].split(' ')[0]), values: topClientes.map(e=>e[1]), title: 'Receita por Cliente' },
-        pie:  { labels: topProd.map(e=>e[0].split(' ').slice(0,2).join(' ')), values: topProd.map(e=>e[1]), title: 'Volume por Produto' }
+        pie:  { labels: topProd.map(e=>e[0].split(' ').slice(0,2).join(' ')), values: topProd.map(e=>e[1]), title: 'Volume por Produto' },
+        heatmap: _buildHeatmapMatrix({
+          title: 'Heatmap de vendas por produto e período',
+          rowTitle: 'Produto',
+          rows: byProduct.map(nome => nome.split(' ').slice(0, 2).join(' ')),
+          cols,
+          metrics: [
+            { key: 'units', label: 'Unidades vendidas', format: 'number', kpiLabels: ['Total de unidades', 'Média por célula', 'Maior ponto', 'Top produto'] },
+            { key: 'revenue', label: 'Receita (R$)', format: 'currency', kpiLabels: ['Receita total', 'Média por célula', 'Pico de receita', 'Top produto'] },
+            { key: 'margin', label: 'Margem (%)', format: 'percent', kpiLabels: ['Margem acumulada', 'Margem média', 'Pico de margem', 'Top produto'] }
+          ],
+          valueGetter: (_, col, metricKey, rIdx) => {
+            const rowNome = byProduct[rIdx];
+            const slot = map[rowNome]?.[col] || { units: 0, revenue: 0, cost: 0 };
+            if (metricKey === 'units') return slot.units;
+            if (metricKey === 'revenue') return slot.revenue;
+            if (slot.revenue <= 0) return 0;
+            return ((slot.revenue - slot.cost) / slot.revenue) * 100;
+          },
+          defaultMetric: 'margin'
+        })
       };
     }
     if (reportKey === 'acoes') {
@@ -1068,9 +1402,34 @@ const InsightEngine = (() => {
       const valorPorDir = {};
       acoes.forEach(a => { valorPorDir[a.diretoria] = (valorPorDir[a.diretoria] || 0) + a.valorAcao; });
       const statusCount = contarPorCampo(acoes, 'status');
+
+      const rows = [...new Set(acoes.map(a => a.diretoria))].sort();
+      const cols = [...new Set(acoes.map(a => a.status))];
+      const map = {};
+      rows.forEach(r => {
+        map[r] = {};
+        cols.forEach(c => { map[r][c] = { qtd: 0, valor: 0 }; });
+      });
+      acoes.forEach(a => {
+        map[a.diretoria][a.status].qtd += 1;
+        map[a.diretoria][a.status].valor += a.valorAcao || 0;
+      });
+
       return {
         bar: { labels: Object.keys(valorPorDir), values: Object.values(valorPorDir), title: 'Valor por Diretoria' },
-        pie: { labels: Object.keys(statusCount), values: Object.values(statusCount), title: 'Ações por Status' }
+        pie: { labels: Object.keys(statusCount), values: Object.values(statusCount), title: 'Ações por Status' },
+        heatmap: _buildHeatmapMatrix({
+          title: 'Heatmap de ações por diretoria e status',
+          rowTitle: 'Diretoria',
+          rows,
+          cols,
+          metrics: [
+            { key: 'qtd', label: 'Quantidade de ações', format: 'number', kpiLabels: ['Total de ações', 'Média por célula', 'Maior célula', 'Diretoria destaque'] },
+            { key: 'valor', label: 'Valor total (R$)', format: 'currency', kpiLabels: ['Valor total', 'Média por célula', 'Maior célula', 'Diretoria destaque'] }
+          ],
+          valueGetter: (row, col, metricKey) => map[row]?.[col]?.[metricKey] || 0,
+          defaultMetric: 'valor'
+        })
       };
     }
     return {};
