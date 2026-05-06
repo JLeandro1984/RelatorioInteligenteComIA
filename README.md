@@ -19,25 +19,50 @@
 ## 🚀 Features Principais
 
 ### 📋 Dashboard Unificada
-- Uma tela adapta-se a **6 tipos de relatórios** (Clientes, Produtos, Estoque, Funcionários, Notas Fiscais, Vendas)
+- Uma tela adapta-se a **7 tipos de relatórios** (Clientes, Produtos, Estoque, Funcionários, Notas Fiscais, Vendas, Ações)
 - Layout responsivo com sidebar colapsável
 - Topbar com data/hora e ações rápidas
 
-### 🎓 Inteligência Artificial Simulada
-- Interpretação de perguntas em linguagem natural
-- Geração contextual de **insights automáticos**
-- **Resumo executivo** com análise profissional
-- **Recomendações** baseadas nos dados
-- Cálculo de **KPIs** sob demanda
+### 🧠 Inteligência Artificial (Groq)
+- **Backend seguro** — Proxy Node.js/Express com chave Groq no `.env` (nunca exposta ao browser)
+- **Contexto real do relatório** — JSON completo dos dados filtrados enviado ao modelo
+- Interpretação de perguntas em linguagem natural com **respostas contextualizadas**
+- Geração de **tabelas inline** quando a resposta exige formato tabular
+- **Assistente de melhoria** de pergunta no campo de input (sugestão IA com debounce)
+- **Chat flutuante** por relatório — histórico isolado por tipo, restrito ao contexto
+- **Retry automático** no chat: botão "Tentar novamente" aparece na bolha de erro sem perder a pergunta
 
 ### 📊 Visualização de Dados
-- **KPI Cards** com indicadores de tendência — **refletem os filtros ativos**
-- **Gráficos** (bar, line, donut) com gradientes premium — **refletem os filtros ativos**
-- **Switcher de tipo de gráfico** — alterna entre os tipos disponíveis por relatório
-- **Tabela interativa** com ordenação por coluna
+- **KPI Cards** com indicadores de tendência — refletem os filtros ativos
+- **Gráficos** (bar, pie) com gradientes premium — refletem os filtros ativos
+- **Heatmap interativo** — grade de calor HTML/CSS com:
+  - Seletor de métrica (ex.: Unidades, Receita, Margem)
+  - 4 KPI cards dinâmicos por métrica
+  - Barra de escala visual Menor/Maior
+  - Grade com scroll horizontal
+  - Dados específicos por tipo de relatório
+- **Switcher de tipo de gráfico** — alterna entre Bar, Pie e Heatmap
+- **Tabela interativa** com ordenação por coluna e busca com debounce
 - **Filtros dinâmicos** conforme o tipo de relatório
-- **Pesquisa com debounce** (200 ms) na tabela
-- **Drag-and-drop no menu** para reordenar relatórios (ordem persiste)
+- **Drag-and-drop no menu** para reordenar relatórios (ordem persiste em `localStorage`)
+
+### 💬 Chat IA Flutuante
+- Botão fixo na tela para abrir/fechar
+- Contexto vinculado ao relatório ativo (recusa perguntas fora do escopo)
+- Histórico por relatório, isolado em `state.chatThreads`
+- Suporte a **respostas tabulares** renderizadas inline
+- **Botão de retry** na mensagem de erro: reenvia a pergunta original sem redigitar
+
+### 📤 Exportação
+- **Modal profissional** com seleção de formato
+- **PDF (Snapshot)** — captura visual via html2canvas + jsPDF
+- **CSV** — dados tabulares para Excel
+- **JSON** — estrutura completa com metadados e filtros
+
+### 🔖 Sugestões de Perguntas
+- Salvar até **10 sugestões por relatório** (persistência em `localStorage`)
+- Chips de sugestão destacados quando salvos
+- Remoção individual e limpeza total das sugestões salvas
 
 ### ⚙️ Configuração Sem Limites
 - Novo relatório = novo registro em `report-config.js`
@@ -60,9 +85,12 @@
 RelatorioInteligenteIA/
 │
 ├── index.html                    ← HTML da aplicação
-├── favicon.svg                   ← Ícone do projeto (exibido no navegador)
+├── favicon.svg                   ← Ícone do projeto
 ├── manifest.json                 ← Configuração de PWA
 ├── START_SERVER.bat              ← Script para iniciar servidor local
+├── server.js                     ← Backend Node.js/Express (proxy Groq)
+├── .env                          ← Chave da API Groq (não versionada)
+├── package.json                  ← Dependências Node.js
 ├── README.md                     ← Documentação (este arquivo)
 │
 ├── css/
@@ -70,8 +98,10 @@ RelatorioInteligenteIA/
 │
 ├── js/
 │   ├── report-config.js          ★ Configuração declarativa dos relatórios
-│   ├── insight-engine.js         ★ Motor de IA (insights, KPIs, análise)
+│   ├── insight-engine.js         ★ Motor de IA local (insights, KPIs, heatmap data)
+│   ├── groq-service.js           ★ Serviço de IA real (Groq API via proxy)
 │   ├── chart-engine.js           ★ Wrapper Chart.js (render gráficos)
+│   ├── heatmap-engine.js         ★ Motor de heatmap HTML/CSS
 │   ├── report-engine.js          ★ Renderizador de componentes DOM
 │   ├── drag-drop-menu.js         ★ Drag-and-drop para reordenar menu
 │   └── app.js                    ★ Orquestrador principal
@@ -79,7 +109,9 @@ RelatorioInteligenteIA/
 ├── data/
 │   └── report-data.json          ← Dados simulados (JSON)
 │
-└── README.md                     ← Documentação (este arquivo)
+└── temp/
+    └── conversa_chat/
+        └── conversa.txt          ← Log de sessão e links de referência
 ```
 
 ---
@@ -314,11 +346,16 @@ E registre a intenção em `INTENCOES`:
 | **HTML5** | - | Estrutura semântica |
 | **CSS3** | - | Design system, grid, flexbox, animações |
 | **JavaScript ES6+** | - | Lógica, modularização (IIFE), eventos |
+| **Node.js + Express** | - | Backend proxy seguro para API Groq |
+| **Groq API** | - | Modelo de linguagem para análise contextual |
 | **Chart.js** | 4.4.0 | Gráficos interativos (CDN) |
+| **html2canvas** | 1.4.1 | Captura de tela para export PDF |
+| **jsPDF** | 2.5.1 | Geração de PDF no browser |
 | **Lucide Icons** | Latest | Ícones SVG (CDN) |
 | **Google Fonts** | Inter | Tipografia corporativa |
+| **dotenv** | - | Gerenciamento seguro de variáveis de ambiente |
 
-**Sem frameworks** — React, Vue, Angular, Webpack, etc. não utilizados.
+**Sem frameworks front-end** — React, Vue, Angular, Webpack, etc. não utilizados.
 
 ---
 
@@ -418,34 +455,48 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 
 ## 🚀 Performance e Otimizações
 
-- ✅ **Zero dependências** — CSS/JS nativos, sem build
+- ✅ **Zero dependências front-end** — CSS/JS nativos, sem build
+- ✅ **Backend seguro** — Chave Groq no servidor, nunca exposta ao browser
 - ✅ **Gráficos lazy** — Destroi instância anterior antes de recriar
-- ✅ **Animações GPU** — Usar `transform` + `opacity`
+- ✅ **Animações GPU** — `transform` + `opacity`
 - ✅ **Lazy loading de ícones** — Lucide carregado via CDN
-- ✅ **Debouncing na tabela** — 200 ms de delay antes de filtrar, evita renders desnecessários
+- ✅ **Debouncing na tabela** — 200 ms de delay antes de filtrar
+- ✅ **Debouncing na sugestão de pergunta** — 800 ms antes de consultar a IA
 - ✅ **Event delegation** — Menos listeners, melhor memória
-- ✅ **Drag-and-drop otimizado** — Usa HTML5 nativo, salva em localStorage
-- ✅ **Filtros consistentes** — KPIs, gráficos e tabela refletem exatamente o mesmo conjunto de dados filtrado
-- ✅ **ChartEngine.resizeAll()** — Redimensiona canvas ao alternar o tipo de gráfico visível
+- ✅ **Drag-and-drop otimizado** — HTML5 nativo, salva em localStorage
+- ✅ **Filtros consistentes** — KPIs, gráficos, heatmap e tabela refletem exatamente o mesmo conjunto de dados
+- ✅ **ChartEngine.resizeAll()** — Redimensiona canvas ao alternar tipo de gráfico
+- ✅ **Chat threads isolados** — Histórico separado por relatório, não vaza entre contextos
+- ✅ **Retry sem reDigitação** — Mensagem de erro preserva a pergunta original para reenvio
 
 ---
 
 ## 🔮 Roadmap e Melhorias Futuras
 
 ### ✅ Concluído (06/04/2026)
-- [x] **KPIs e gráficos filtrados** — KPI cards, gráficos e insights respeitam os filtros ativos da tela
-- [x] **Switcher de tipo de gráfico** — Botões dinâmicos para alternar entre os tipos disponíveis por relatório
+- [x] **KPIs e gráficos filtrados** — KPI cards, gráficos e insights respeitam os filtros ativos
+- [x] **Switcher de tipo de gráfico** — Botões dinâmicos para alternar os tipos disponíveis por relatório
 - [x] **Debounce na busca** — 200 ms de debounce real na pesquisa da tabela
 - [x] **Inicialização única do DragDrop** — Removida chamada duplicada de `DragDropMenu.init`
 
+### ✅ Concluído (05/05/2026)
+- [x] **Integração Groq real** — Backend Node.js/Express proxy com chave em `.env`; remove vazamento de key
+- [x] **Contexto JSON no prompt** — Dados filtrados do relatório injetados no prompt da IA (chat e relatório)
+- [x] **Chat flutuante contextual** — Chat isolado por relatório, recusa perguntas fora do escopo
+- [x] **Respostas tabulares** — Protocolo `__TABLE_JSON__` detectado e renderizado inline nos dois fluxos
+- [x] **Exportação real** — PDF snapshot (html2canvas + jsPDF), CSV e JSON com modal profissional
+- [x] **Sugestões salvas** — Salvar, remover individualmente e limpar até 10 sugestões por relatório
+- [x] **Assistente de melhoria de pergunta** — Sugestão IA com debounce no campo `aiQuestion` + aplicar com 1 clique
+- [x] **Heatmap por relatório** — Novo `heatmap-engine.js` com seletor de métrica, KPIs, escala e grade rolável
+- [x] **Heatmap proporcional ao design system** — Tipografia, espaçamentos e cores alinhadas às variáveis CSS
+- [x] **Retry no chat** — Botão "Tentar novamente" na bolha de erro preserva e reenvia a pergunta original
+- [x] **Relatório Ações** — 7º tipo incluído com filtros, KPIs, insights e heatmap próprios
+
 ### Próximas Evoluções
-- [ ] **Integração com Backend Real** — Trocar `fetch` de JSON por API REST
-- [ ] **Integração com IA Real** — OpenAI / Claude / Gemini via backend
-- [ ] **Exportação** — PDF, Excel, CSV dos relatórios
+- [ ] **Backend real** — Trocar `fetch` de JSON por API REST com autenticação
 - [ ] **Agendamento** — Relatórios automáticos por email
 - [ ] **Permissões** — Controle de acesso por usuário
-- [ ] **Temas** — Dark/Light mode
-- [ ] **Persistência** — LocalStorage para filtros favoritos
+- [ ] **Temas** — Dark/Light mode alternável
 - [ ] **Análise de Tendências** — Comparação período a período
 - [ ] **Alertas** — Notificações push quando anomalias são detectadas
 

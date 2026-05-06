@@ -23,6 +23,10 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+  <!-- PDF Export Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css" />
 </head>
@@ -155,12 +159,28 @@
                   <i data-lucide="x"></i>
                 </button>
               </div>
+              <div class="ai-question-suggestion" id="aiQuestionSuggestion" style="display:none;">
+                <div class="ai-question-suggestion__header">
+                  <i data-lucide="wand-sparkles"></i>
+                  <span>Melhoria de pergunta (IA)</span>
+                </div>
+                <p class="ai-question-suggestion__text" id="aiQuestionSuggestionText"></p>
+                <button class="ai-question-suggestion__apply" id="aiQuestionSuggestionApply" type="button">
+                  Usar sugestão
+                </button>
+              </div>
               <div class="filter-bar__suggestions" id="aiSuggestions">
                 <!-- Populated dynamically -->
               </div>
             </div>
 
             <div class="filter-bar__actions">
+              <button class="btn btn--ghost" id="btnSaveSuggestion">
+                <i data-lucide="bookmark-plus"></i> Salvar Pergunta
+              </button>
+              <button class="btn btn--ghost" id="btnClearSavedSuggestions">
+                <i data-lucide="bookmark-x"></i> Limpar Sugestões
+              </button>
               <button class="btn btn--ghost" id="btnClearFilters">
                 <i data-lucide="x-circle"></i> Limpar
               </button>
@@ -277,13 +297,101 @@
   </div>
   <!-- /app -->
 
+  <!-- FLOATING IA CHAT -->
+  <button class="floating-chat-toggle" id="floatingChatToggle" aria-label="Abrir chat da IA" title="Chat IA do relatório">
+    <i data-lucide="messages-square"></i>
+  </button>
+
+  <section class="floating-chat" id="floatingChat" aria-live="polite" style="display:none;">
+    <header class="floating-chat__header">
+      <div class="floating-chat__title-wrap">
+        <i data-lucide="sparkles"></i>
+        <div>
+          <h4 class="floating-chat__title">Chat IA do Relatório</h4>
+          <p class="floating-chat__subtitle" id="floatingChatReport">Selecione um relatório</p>
+        </div>
+      </div>
+      <button class="floating-chat__close" id="floatingChatClose" aria-label="Fechar chat">
+        <i data-lucide="x"></i>
+      </button>
+    </header>
+
+    <div class="floating-chat__messages" id="floatingChatMessages"></div>
+
+    <form class="floating-chat__composer" id="floatingChatForm">
+      <input
+        type="text"
+        class="floating-chat__input"
+        id="floatingChatInput"
+        placeholder="Pergunte sobre o relatório atual..."
+        autocomplete="off"
+      />
+      <button type="submit" class="floating-chat__send" id="floatingChatSend" aria-label="Enviar mensagem">
+        <i data-lucide="send"></i>
+      </button>
+    </form>
+  </section>
+
+  <!-- EXPORT MODAL -->
+  <div class="export-modal" id="exportModal" style="display:none;" aria-hidden="true">
+    <div class="export-modal__backdrop" id="exportModalBackdrop"></div>
+    <div class="export-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+      <div class="export-modal__header">
+        <div class="export-modal__title-wrap">
+          <i data-lucide="download"></i>
+          <h4 id="exportModalTitle">Exportar Relatório</h4>
+        </div>
+        <button class="export-modal__close" id="exportModalClose" aria-label="Fechar modal de exportação">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <p class="export-modal__subtitle">Selecione o formato de saída para o relatório atual.</p>
+
+      <div class="export-modal__options" id="exportModalOptions">
+        <button class="export-option active" data-export-format="pdf" type="button">
+          <i data-lucide="file-text"></i>
+          <div>
+            <span class="export-option__label">PDF (Snapshot)</span>
+            <span class="export-option__desc">Captura visual do relatório como está na tela</span>
+          </div>
+        </button>
+
+        <button class="export-option" data-export-format="csv" type="button">
+          <i data-lucide="table"></i>
+          <div>
+            <span class="export-option__label">CSV</span>
+            <span class="export-option__desc">Dados tabulares para Excel e análises</span>
+          </div>
+        </button>
+
+        <button class="export-option" data-export-format="json" type="button">
+          <i data-lucide="braces"></i>
+          <div>
+            <span class="export-option__label">JSON</span>
+            <span class="export-option__desc">Estrutura completa com metadados e filtros</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="export-modal__actions">
+        <button class="btn btn--ghost" id="exportModalCancel" type="button">Cancelar</button>
+        <button class="btn btn--primary" id="exportModalConfirm" type="button">
+          <i data-lucide="download"></i> Exportar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION -->
   <div class="toast" id="toast"></div>
 
   <!-- SCRIPTS (order matters) -->
   <script src="js/report-config.js"></script>
+  <script src="js/groq-service.js"></script>
   <script src="js/insight-engine.js"></script>
   <script src="js/chart-engine.js"></script>
+  <script src="js/heatmap-engine.js"></script>
   <script src="js/report-engine.js"></script>
   <script src="js/drag-drop-menu.js"></script>
   <script src="js/app.js"></script>
