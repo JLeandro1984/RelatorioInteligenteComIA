@@ -585,4 +585,4 @@ Este projeto demonstra boas práticas profissionais:
 
 ---
 
-**Desenvolvido com 💜 para análises de dados premium sem frameworks.**
+**Construído para análises de dados de alto desempenho, sem dependência de frameworks.**
