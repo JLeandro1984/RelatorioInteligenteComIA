@@ -1,34 +1,55 @@
 @echo off
-REM ════════════════════════════════════════════════════════════════
-REM  Relatório Inteligente IA - Servidor Node.js + Proxy Groq
-REM ════════════════════════════════════════════════════════════════
+setlocal
 
-title Servidor Node.js - Relatório Inteligente IA
-
-echo.
-echo ╔══════════════════════════════════════════════════════════════╗
-echo ║   Iniciando servidor Node.js...                              ║
-echo ╚══════════════════════════════════════════════════════════════╝
-echo.
+title Servidor Node.js - Relatorio Inteligente IA
 
 cd /d "%~dp0"
 
-REM Instala dependências se node_modules não existir
-if not exist "node_modules" (
-    echo  Instalando dependências (primeira execução)...
-    npm install
-    echo.
-)
+echo.
+echo ===============================================================
+echo   Iniciando servidor Node.js...
+echo ===============================================================
+echo.
 
-REM Inicia o servidor Node
-node server.js
-
-REM Mantém a janela aberta em caso de erro
+where node >nul 2>&1
 if errorlevel 1 (
-    echo.
-    echo ❌ Erro: Node.js não está instalado ou não está no PATH
-    echo    Baixe em: https://nodejs.org/
+    echo [ERRO] Node.js nao encontrado no PATH.
+    echo        Instale em: https://nodejs.org/
     echo.
     pause
+    exit /b 1
 )
+
+if not exist "package.json" (
+    echo [ERRO] package.json nao encontrado nesta pasta.
+    echo        Pasta atual: %CD%
+    echo.
+    pause
+    exit /b 1
+)
+
+if not exist "node_modules" (
+    echo Instalando dependencias - primeira execucao...
+    call npm install
+    if errorlevel 1 (
+        echo.
+        echo [ERRO] Falha ao instalar dependencias.
+        echo.
+        pause
+        exit /b 1
+    )
+    echo.
+)
+
+call npm start
+if errorlevel 1 (
+    echo.
+    echo [ERRO] O servidor foi encerrado com falha.
+    echo        Verifique as mensagens acima: porta em uso, .env, etc.
+    echo.
+    pause
+    exit /b 1
+)
+
+exit /b 0
 

@@ -16,6 +16,31 @@
 
 ---
 
+## 🆕 Atualizações de Hoje (07/05/2026)
+
+### 🧠 IA e Chat
+- ✅ **Escopo automático entre entidades** — A pergunta pode citar outra entidade e o sistema redireciona o contexto (ex.: de Notas para Ações)
+- ✅ **Roteamento semântico de intenção** — termos como "notas canceladas" + variação de valor mapeiam para análises de Ações
+- ✅ **Respostas determinísticas melhoradas** para Ações (diretoria, cliente, status e perguntas de contagem com maior precisão)
+- ✅ **Tabela comparativa para canceladas com valor alterado** (exibição tabular inline no chat)
+- ✅ **Recomendações realmente geradas pela IA (Groq)** com fallback local quando indisponível
+- ✅ **Badge de escopo visível** nas respostas do chat e nos cards de insight
+- ✅ **Erros mais amigáveis no chat** (mensagem genérica para usuário + detalhe técnico no console)
+
+### 📊 Tabela e Insights
+- ✅ **Paginação da tabela** com navegação e seletor de página (10/20/50/100)
+- ✅ **Persistência de "registros por página" em `localStorage`**
+- ✅ **Cards de insight com altura limitada** e scroll interno para evitar alongamento excessivo
+
+### 🧩 UX e Polimento Visual
+- ✅ **Copiar para área de transferência** no chat (pergunta e resposta) e nos cards da Análise IA
+- ✅ **Ícone de cópia mais discreto**, menor e sem atropelar conteúdo
+- ✅ **Exibição do copiar por hover/foco no texto** (desktop) e visível em mobile para toque
+- ✅ **Header do chat refinado**: botão maximizar alinhado e próximo ao botão fechar
+- ✅ **Correção de estouro nos botões de ação** (incluindo "Limpar Sugestões") com melhor responsividade
+
+---
+
 ## 🚀 Features Principais
 
 ### 📋 Dashboard Unificada
@@ -29,8 +54,10 @@
 - Interpretação de perguntas em linguagem natural com **respostas contextualizadas**
 - Geração de **tabelas inline** quando a resposta exige formato tabular
 - **Assistente de melhoria** de pergunta no campo de input (sugestão IA com debounce)
-- **Chat flutuante** por relatório — histórico isolado por tipo, restrito ao contexto
+- **Chat flutuante** por relatório — histórico isolado por tipo, com **detecção automática de escopo** entre entidades
+- **Escopo visível** nas respostas via badge (ex.: `Escopo: Ações`)
 - **Retry automático** no chat: botão "Tentar novamente" aparece na bolha de erro sem perder a pergunta
+- **Ações de cópia** no chat e insights com fallback de clipboard
 
 ### 📊 Visualização de Dados
 - **KPI Cards** com indicadores de tendência — refletem os filtros ativos
@@ -43,15 +70,17 @@
   - Dados específicos por tipo de relatório
 - **Switcher de tipo de gráfico** — alterna entre Bar, Pie e Heatmap
 - **Tabela interativa** com ordenação por coluna e busca com debounce
+- **Paginação da tabela** com seletor de quantidade por página (10/20/50/100) e persistência
 - **Filtros dinâmicos** conforme o tipo de relatório
 - **Drag-and-drop no menu** para reordenar relatórios (ordem persiste em `localStorage`)
 
 ### 💬 Chat IA Flutuante
 - Botão fixo na tela para abrir/fechar
-- Contexto vinculado ao relatório ativo (recusa perguntas fora do escopo)
+- Contexto base vinculado ao relatório ativo com **redirecionamento automático de escopo** quando a pergunta aponta outra entidade
 - Histórico por relatório, isolado em `state.chatThreads`
 - Suporte a **respostas tabulares** renderizadas inline
 - **Botão de retry** na mensagem de erro: reenvia a pergunta original sem redigitar
+- **Botão de copiar** em perguntas e respostas
 
 ### 📤 Exportação
 - **Modal profissional** com seleção de formato
@@ -179,6 +208,7 @@ Clique em **"Gerar Relatório"** e aguarde:
 
 - **Tabela**: Clique no cabeçalho para ordenar por coluna
 - **Pesquisa**: Use a caixa de busca para filtrar registros em tempo real
+- **Paginação**: Ajuste a quantidade de registros por página (10/20/50/100) e navegue entre páginas
 - **Limpar**: Botão "Limpar" reseta todos os filtros
 - **Exportar**: Botão de export (simulado, pronto para backend)
 - **Atualizar**: Recarrega dados do JSON
@@ -467,7 +497,10 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 - ✅ **Filtros consistentes** — KPIs, gráficos, heatmap e tabela refletem exatamente o mesmo conjunto de dados
 - ✅ **ChartEngine.resizeAll()** — Redimensiona canvas ao alternar tipo de gráfico
 - ✅ **Chat threads isolados** — Histórico separado por relatório, não vaza entre contextos
+- ✅ **Escopo inteligente no chat** — Detecção de entidade alvo e roteamento sem troca manual de relatório
 - ✅ **Retry sem reDigitação** — Mensagem de erro preserva a pergunta original para reenvio
+- ✅ **Tabela paginada com preferência persistente** — Escolha de itens/página salva em localStorage
+- ✅ **Cópia rápida de conteúdo IA** — Chat e insights com botão de copiar
 
 ---
 
@@ -482,7 +515,7 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 ### ✅ Concluído (05/05/2026)
 - [x] **Integração Groq real** — Backend Node.js/Express proxy com chave em `.env`; remove vazamento de key
 - [x] **Contexto JSON no prompt** — Dados filtrados do relatório injetados no prompt da IA (chat e relatório)
-- [x] **Chat flutuante contextual** — Chat isolado por relatório, recusa perguntas fora do escopo
+- [x] **Chat flutuante contextual** — Chat isolado por relatório com histórico por contexto
 - [x] **Respostas tabulares** — Protocolo `__TABLE_JSON__` detectado e renderizado inline nos dois fluxos
 - [x] **Exportação real** — PDF snapshot (html2canvas + jsPDF), CSV e JSON com modal profissional
 - [x] **Sugestões salvas** — Salvar, remover individualmente e limpar até 10 sugestões por relatório
@@ -491,6 +524,18 @@ Na coluna de uma tabela, você pode especificar `tipo`:
 - [x] **Heatmap proporcional ao design system** — Tipografia, espaçamentos e cores alinhadas às variáveis CSS
 - [x] **Retry no chat** — Botão "Tentar novamente" na bolha de erro preserva e reenvia a pergunta original
 - [x] **Relatório Ações** — 7º tipo incluído com filtros, KPIs, insights e heatmap próprios
+
+### ✅ Concluído (07/05/2026)
+- [x] **Escopo cruzado entre entidades** — Perguntas podem citar outra entidade sem travar no relatório ativo
+- [x] **Badges de escopo** — Indicador de contexto aplicado no chat e nos insights
+- [x] **Precisão em perguntas de Ações** — Regras determinísticas para diretoria, cliente, status e contagem
+- [x] **Consulta "canceladas com valor alterado"** — Resposta tabular com comparação de valores
+- [x] **Paginação da tabela + seletor 10/20/50/100** — Navegação e controle de volume por página
+- [x] **Persistência da paginação** — Valor selecionado salvo em localStorage
+- [x] **Recomendações IA (Groq) com fallback** — Sugestões reais da IA com alternativa local
+- [x] **Copiar resposta/pergunta/insight** — Botões de cópia com fallback de clipboard
+- [x] **Refino visual do chat** — Ícone de copiar discreto + alinhamento maximizar/fechar
+- [x] **Correção de layout dos botões de ação** — "Limpar Sugestões" sem estourar em resoluções menores
 
 ### Próximas Evoluções
 - [ ] **Backend real** — Trocar `fetch` de JSON por API REST com autenticação

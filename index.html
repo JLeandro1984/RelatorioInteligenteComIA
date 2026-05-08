@@ -241,6 +241,15 @@
                 <h3 class="section__title">Dados Detalhados</h3>
               </div>
               <div class="table-controls">
+                <div class="table-page-size-wrap">
+                  <label for="tablePageSize">Registros por pagina</label>
+                  <select id="tablePageSize" class="table-page-size">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
                 <div class="search-wrap">
                   <i data-lucide="search"></i>
                   <input type="text" class="table-search" id="tableSearch" placeholder="Filtrar tabela..." />
@@ -254,6 +263,7 @@
                 <tbody id="tableBody"></tbody>
               </table>
             </div>
+            <div class="table-pagination" id="tablePagination"></div>
           </div>
 
           <!-- EXECUTIVE SUMMARY + AI RECOMMENDATIONS -->
@@ -311,6 +321,9 @@
           <p class="floating-chat__subtitle" id="floatingChatReport">Selecione um relatório</p>
         </div>
       </div>
+      <button type="button" class="floating-chat__expand" id="floatingChatExpand" aria-label="Expandir chat">
+        <i data-lucide="maximize-2"></i>
+      </button>
       <button class="floating-chat__close" id="floatingChatClose" aria-label="Fechar chat">
         <i data-lucide="x"></i>
       </button>
@@ -331,6 +344,57 @@
       </button>
     </form>
   </section>
+
+  <!-- CHAT EXPAND MODAL -->
+  <div class="chat-expand-modal" id="chatExpandModal" style="display:none;" aria-hidden="true">
+    <div class="chat-expand-modal__backdrop" id="chatExpandModalBackdrop"></div>
+    <div class="chat-expand-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="chatExpandModalTitle">
+      <div class="chat-expand-modal__header">
+        <div class="chat-expand-modal__title-wrap">
+          <i data-lucide="sparkles"></i>
+          <div>
+            <h4 id="chatExpandModalTitle">Chat IA do Relatório</h4>
+            <p class="chat-expand-modal__subtitle" id="chatExpandModalReport">Selecione um relatório</p>
+          </div>
+        </div>
+        <button type="button" class="chat-expand-modal__close" id="chatExpandModalClose" aria-label="Fechar">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="chat-expand-modal__messages" id="chatExpandMessages"></div>
+      <form class="chat-expand-modal__composer" id="chatExpandForm">
+        <input
+          type="text"
+          class="chat-expand-modal__input"
+          id="chatExpandInput"
+          placeholder="Pergunte sobre o relatório atual..."
+          autocomplete="off"
+        />
+        <button type="submit" class="chat-expand-modal__send" aria-label="Enviar mensagem">
+          <i data-lucide="send"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- AI INSIGHT EXPAND MODAL -->
+  <div class="ai-expand-modal" id="aiExpandModal" style="display:none;" aria-hidden="true">
+    <div class="ai-expand-modal__backdrop" id="aiExpandModalBackdrop"></div>
+    <div class="ai-expand-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="aiExpandModalTitle">
+      <div class="ai-expand-modal__header">
+        <div class="ai-expand-modal__title-wrap">
+          <i data-lucide="sparkles"></i>
+          <h4 id="aiExpandModalTitle">Insight Expandido</h4>
+        </div>
+        <button type="button" class="ai-expand-modal__close" id="aiExpandModalClose" aria-label="Fechar">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="ai-expand-modal__body" id="aiExpandModalBody" style="display: flex; align-items: center; justify-content: center; min-height: 300px;">
+        <!-- Card de insight será clonado aqui -->
+      </div>
+    </div>
+  </div>
 
   <!-- EXPORT MODAL -->
   <div class="export-modal" id="exportModal" style="display:none;" aria-hidden="true">
