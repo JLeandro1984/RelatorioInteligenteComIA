@@ -1,1 +1,336 @@
+================================================================================
+DIARIO DO PROJETO - RELATORIO INTELIGENTE IA
+================================================================================
 
+INDICE RAPIDO
+- SESSAO 1 (08/04/2026) - Integracao Groq + backend seguro
+- SESSAO 2 (05/05/2026) - Pacote de melhorias (chat, exportacao, heatmap, sugestoes)
+- SESSAO 3 (07/05/2026) - Analise detalhada da situacao tecnica
+- SESSAO 4 (07/05/2026) - Situacao atual consolidada + checklist de retomada
+
+--------------------------------------------------------------------------------
+SESSAO 1 - 08/04/2026
+INTEGRACAO GROQ + BACKEND SEGURO
+--------------------------------------------------------------------------------
+
+O QUE FOI FEITO
+- Backend Node.js criado (server.js) como proxy seguro para a Groq API.
+- Endpoint POST /api/groq expoe a IA sem vazar a chave no browser.
+- GroqService.js criado no frontend para consumir o proxy.
+- Fluxo de geracao de relatorio atualizado: pergunta -> Groq -> card de resposta IA.
+- START_SERVER.bat corrigido para iniciar Node.js (nao mais Python).
+- Dependencias NPM instaladas (express, dotenv, node-fetch).
+
+PROBLEMA RESOLVIDO
+- Primeira chave retornou 401 Invalid API Key.
+- Nova chave gerada em https://console.groq.com/keys e aplicada no .env.
+- Regra: sempre reiniciar o servidor apos trocar chave no .env.
+
+OBSERVACAO DE SEGURANCA
+- Nunca expor a API Key no frontend.
+- Nao versionar .env em repositorio publico.
+
+LINKS UTEIS
+- Painel de chaves: https://console.groq.com/keys
+- Console inicial:  https://console.groq.com/
+
+--------------------------------------------------------------------------------
+SESSAO 2 - 05/05/2026
+DIA COMPLETO DE MELHORIAS (10+ FEATURES APLICADAS)
+--------------------------------------------------------------------------------
+
+ESTADO INICIAL DA SESSAO
+- Integracao Groq funcionando (validada na sessao anterior).
+- Frontend com relatorios: Clientes, Produtos, Estoque, Funcionarios, NFs, Vendas.
+- Sem chat flutuante, sem exportacao real, sem heatmap, sem sugestoes salvas.
+
+LISTA COMPLETA DO QUE FOI IMPLEMENTADO HOJE
+
+  1. CORREC/OES INICIAIS
+     - Resumo e recomendacoes passaram a respeitar filtros ativos.
+     - Removido log de debug da API Key no server.js.
+     - Corrigido card de fallback "Analise da Pergunta" (removido quando Groq responde).
+     - Limite de conteudo da mensagem no servidor aumentado de 4000 para 30000 chars.
+
+  2. CONTEXTO JSON NO PROMPT DA IA
+     - Dados filtrados do relatorio (linhas, KPIs, arrays relacionados) sao serializados
+       e injetados no system prompt antes de cada chamada.
+     - Tanto o fluxo "Gerar Relatorio" quanto o Chat flutuante usam esse contexto.
+     - Resultado: IA responde com valores reais dos dados (ex.: preco de produto especifico).
+
+  3. CHAT FLUTUANTE CONTEXTUAL
+     - Botao fixo (canto inferior direito) abre/fecha o painel de chat.
+     - Historico isolado por relatorio (state.chatThreads[reportKey]).
+     - IA recusa perguntas fora do escopo do relatorio ativo.
+     - Suporte a respostas tabulares renderizadas inline no chat.
+
+  4. RESPOSTAS TABULARES (PROTOCOLO __TABLE_JSON__)
+     - Quando a pergunta exige lista/comparacao, o prompt forca formato especial.
+     - Parser detecta __TABLE_JSON__:{...} na resposta e renderiza <table> inline.
+     - Funciona tanto no chat flutuante quanto nos insights do relatorio.
+
+  5. EXPORTACAO REAL
+     - Botao "Exportar" ativado (estava placeholder).
+     - Modal profissional com selecao de formato.
+     - PDF (Snapshot): captura visual via html2canvas + jsPDF.
+     - CSV: dados tabulares compativeis com Excel.
+     - JSON: estrutura completa com metadados e filtros ativos.
+
+  6. SUGESTOES DE PERGUNTAS SALVAS
+     - Botao "Salvar Pergunta" persiste no localStorage (chave por relatorio).
+     - Limite de 10 sugestoes por relatorio.
+     - Chips salvos ficam destacados visualmente.
+     - Botao de remover individual em cada chip salvo.
+     - Botao "Limpar Sugestoes" apaga todas as sugestoes do relatorio atual.
+
+  7. ASSISTENTE DE MELHORIA DE PERGUNTA (aiQuestion)
+     - Ao digitar no campo de pergunta, apos 800ms (debounce) a IA sugere
+       uma versao melhorada da pergunta.
+     - Caixa de sugestao aparece abaixo do input com botao "Usar sugestao".
+     - Aplicar substitui o texto original pela versao sugerida.
+
+  8. HEATMAP INTERATIVO POR RELATORIO
+     - Novo arquivo: js/heatmap-engine.js (motor de renderizacao HTML/CSS).
+     - Novo tipo "heatmap" no switcher de graficos (ao lado de Bar e Pie).
+     - Heatmap ocupa largura total da secao de graficos.
+     - Cada relatorio tem metricas proprias:
+         Vendas/Produtos: Unidades, Receita, Margem (%)
+         Clientes:        Quantidade de clientes, Limite de credito
+         Estoque:         Itens por criticidade, Valor em estoque
+         Funcionarios:    Colaboradores, Massa salarial, Avaliacao media
+         Notas Fiscais:   Quantidade de NFs, Valor faturado, Impostos
+         Acoes:           Quantidade de acoes, Valor total
+     - Seletor de metrica: troca os dados e os KPI cards em tempo real.
+     - 4 KPI cards dinamicos (Total, Media, Maior ponto, Destaque).
+     - Barra de escala Menor/Maior com gradiente azul.
+     - Grade com scroll horizontal para muitas colunas.
+     - Tipografia e espacamentos alinhados ao design system (variaveis CSS).
+
+  9. RELATORIO "ACOES" (7o TIPO)
+     - Novo relatorio incluido com filtros: Status, Diretoria, Divisao, Responsavel.
+     - KPIs: Total de acoes, Valor total, Acoes pagas, Acoes em aberto.
+     - Heatmap: Diretoria x Status.
+     - Sugestoes de perguntas proprias.
+
+  10. RETRY NO CHAT (RECONEXAO APOS FALHA)
+      - Quando a chamada a IA falha no chat, a mensagem de erro exibe botao
+        "Tentar novamente" com icone de refresh.
+      - Ao clicar: remove a bolha de erro do historico e reenvia a pergunta original.
+      - Ciclo continuo sem precisar redigitar (originalText preservado no objeto).
+      - Estilo visual vermelho sutil, diferente das mensagens normais.
+
+  11. README ATUALIZADO
+      - Todas as features acima documentadas.
+      - Estrutura de diretorios atualizada (novos arquivos inclusos).
+      - Tech stack atualizada (Node.js, Groq, html2canvas, jsPDF, dotenv).
+      - Roadmap 05/05/2026 com os 11 itens entregues.
+
+ARQUIVOS ALTERADOS / CRIADOS HOJE
+  - js/heatmap-engine.js         (NOVO - motor de heatmap)
+  - js/groq-service.js           (contexto JSON, chat, tabelas, rewrite suggestion)
+  - js/app.js                    (chat flutuante, exportacao, sugestoes, retry, heatmap)
+  - js/report-engine.js          (render heatmap, tabelas inline nos insights)
+  - js/insight-engine.js         (getChartData com heatmap por relatorio, filtros)
+  - css/styles.css               (heatmap, chat flutuante, export modal, retry btn, etc)
+  - index.html                   (scripts novos, markup do chat e modal de export)
+  - server.js                    (limite de conteudo 30000, sem log de key)
+  - README.md                    (documentacao completa atualizada)
+  - temp/conversa_chat/conversa.txt (este arquivo)
+
+ESTADO FINAL DA SESSAO (O QUE ESTA FUNCIONANDO)
+  - Servidor rodando em http://localhost:8000
+  - Chave Groq valida no .env (validada via /api/groq)
+  - 7 relatorios disponiveis: Clientes, Produtos, Estoque, Funcionarios, NFs, Vendas, Acoes
+  - Graficos: Bar, Pie, Heatmap (todos com dados filtrados)
+  - Chat flutuante com contexto, tabelas inline, retry em falha
+  - Exportacao: PDF, CSV, JSON
+  - Sugestoes: salvar, remover, limpar (ate 10 por relatorio)
+  - Assistente de melhoria de pergunta no aiQuestion
+  - Sem erros de editor em nenhum arquivo
+
+--------------------------------------------------------------------------------
+COMO RETOMAR O PROJETO NA PROXIMA SESSAO
+--------------------------------------------------------------------------------
+
+PASSO 1: INICIAR O SERVIDOR
+  - Executar START_SERVER.bat  OU
+  - Abrir terminal na pasta do projeto e rodar: node server.js
+
+PASSO 2: VERIFICAR A CHAVE GROQ
+  - Se der 401, a chave expirou. Gerar nova em: https://console.groq.com/keys
+  - Colar no arquivo .env:  GROQ_API_KEY=gsk_...
+  - Reiniciar o servidor.
+
+PASSO 3: ABRIR NO NAVEGADOR
+  - http://localhost:8000
+
+PASSO 4: TESTE RAPIDO DE SAUDE
+  curl -X POST http://localhost:8000/api/groq \
+    -H "Content-Type: application/json" \
+    -d "{\"messages\":[{\"role\":\"user\",\"content\":\"oi\"}]}"
+  - Se retornar texto JSON com choices[], esta OK.
+  - Se retornar 401, revisar chave no .env e reiniciar.
+
+IDEIAS PARA PROXIMAS SESSOES (SUGESTOES)
+  - Endpoint /api/health para diagnostico rapido do servidor.
+  - Cache curto para perguntas repetidas (evitar chamadas desnecessarias a Groq).
+  - Comparacao de periodo a periodo (tendencias temporais).
+  - Temas Dark/Light alternavel.
+  - Controle de acesso por usuario.
+  - Alertas/notificacoes quando anomalias sao detectadas nos dados.
+  - Integracao com API REST real em vez de report-data.json.
+
+--------------------------------------------------------------------------------
+SESSAO 3 - 07/05/2026
+ANALISE DETALHADA DA SITUACAO ATUAL DO PROJETO
+--------------------------------------------------------------------------------
+
+VISÃO GERAL
+- Projeto consolidado como MVP funcional com frontend em HTML/CSS/JS puro e
+  backend Node.js/Express para proxy seguro da Groq.
+- Arquitetura modular no frontend (App, ReportEngine, InsightEngine, ChartEngine,
+  HeatmapEngine, DragDropMenu), com estado centralizado no app.js.
+- Produto ja cobre fluxo completo de analise: filtros, KPIs, graficos, tabela,
+  insights, chat IA contextual e exportacao.
+
+BACKEND (SERVER.JS)
+- Servidor com dotenv + express + node-fetch, endpoint principal em /api/groq.
+- Suporte a 3 formatos de chave:
+  - GROQ_API_KEY_1..N
+  - GROQ_API_KEY (unica)
+  - GROQ_API_KEYS (lista separada por virgula/ponto e virgula/quebra de linha)
+- Round-robin de chaves para distribuir chamadas.
+- Fallback de modelo ativo (padrao: llama-3.3-70b-versatile -> llama-3.1-8b-instant).
+- max_tokens padrao reduzido para 220 para controlar consumo.
+- Tratamento de erros robusto:
+  - EADDRINUSE com orientacao para trocar PORT no .env
+  - 429 rate_limit_exceeded com mensagem amigavel e janela de espera
+
+FRONTEND (STATUS FUNCIONAL)
+- Dashboard unica para multiplos relatorios com configuracao declarativa.
+- Filtros dinamicos por tipo de relatorio.
+- KPIs, graficos (bar/pie), heatmap, tabela interativa e resumo executivo.
+- Chat IA flutuante por relatorio com historico isolado.
+- Renderizacao de respostas tabulares inline.
+- Retry no chat sem redigitar pergunta.
+- Exportacao em PDF (snapshot), CSV e JSON.
+- Sugestoes de perguntas salvas por relatorio (localStorage, limite de 10).
+- Menu lateral com drag-and-drop e persistencia da ordem.
+
+PONTOS FORTES TECNICOS
+- Boa separacao de responsabilidades entre modulos.
+- Configuracao escalavel via report-config.js (novo relatorio sem reescrever fluxo).
+- Camada de seguranca correta para segredo da API (nao exposto no browser).
+- UX avancada para MVP (chat, modal de export, heatmap, recomendacoes e feedbacks).
+
+PENDENCIAS TECNICAS IDENTIFICADAS
+- chartTypeSwitcher: elemento existe no HTML/CSS, mas a logica JS ainda precisa
+  validacao completa de comportamento em todos os relatorios.
+- Coerencia de filtros: ha historico de ponto de atencao para garantir que KPIs e
+  graficos sempre reflitam exatamente os filtros ativos em todos os cenarios.
+- Busca com debounce: documentada, mas precisa confirmar implementacao final no
+  fluxo de tabela para datasets maiores.
+- DragDropMenu.init: havia registro de chamada duplicada (revisar para evitar
+  listeners duplicados).
+
+RISCO OPERACIONAL COM GROQ
+- Mesmo com varias chaves, se pertencem a mesma organizacao, pode persistir
+  limite por TPD da organizacao (nao necessariamente aumenta capacidade).
+- Projeto ja mitigou parcialmente com fallback de modelo e reducao de contexto.
+
+ESTADO DE QUALIDADE
+- Estrutura geral madura para MVP.
+- Nao foram apontados erros criticos de sintaxe na ultima rodada.
+- Projeto apto para continuidade com foco em estabilidade e performance.
+
+PRIORIDADES RECOMENDADAS (PROXIMA ITERACAO)
+1) Fechar validacao do switcher de grafico em todos os tipos de relatorio.
+2) Garantir 100% de aderencia de filtros em KPI/graficos/tabela/insights.
+3) Revisar debounce e performance com massa maior de dados (500+ registros).
+4) Confirmar que nao ha inicializacao duplicada no DragDropMenu.
+5) Evoluir observabilidade com endpoint de health-check e logs resumidos.
+
+CONCLUSAO EXECUTIVA
+- O projeto esta em bom estado para um MVP: funcional, modular e com experiencia
+  de uso acima da media para dashboard vanilla.
+- As pendencias atuais sao majoritariamente de consolidacao tecnica (consistencia
+  de comportamento e robustez), nao de arquitetura.
+- Com uma rodada curta de hardening, o sistema fica pronto para escala controlada
+  e integracao com fontes de dados reais.
+
+--------------------------------------------------------------------------------
+SESSAO 4 - 07/05/2026
+SITUACAO ATUAL (ULTIMAS MELHORIAS APLICADAS)
+--------------------------------------------------------------------------------
+
+RESUMO EXECUTIVO DA SITUACAO
+- Projeto em estado estavel e funcional para continuidade imediata.
+- Principais melhorias de IA, UX e tabela aplicadas e validadas sem erros de sintaxe.
+- README atualizado com o historico consolidado do dia.
+
+O QUE FOI APLICADO NESTA RODADA
+
+1) IA / CHAT (QUALIDADE DE RESPOSTA)
+   - Deteccao automatica de escopo da pergunta (_resolveQuestionScope):
+     o usuario pode perguntar sobre outra entidade sem trocar manualmente o relatorio.
+   - Roteamento semantico para consultas de "notas canceladas" com variacao de valor,
+     direcionando para o contexto de Acoes quando necessario.
+   - Regras deterministicas reforcadas para perguntas de contagem em Acoes
+     (diretoria, cliente, status e casos de canceladas com valor alterado).
+   - Suporte tabular aprimorado para respostas comparativas no chat.
+
+2) VISUALIZACAO / TABELA / INSIGHTS
+   - Paginacao da tabela implementada com seletor de tamanho (10/20/50/100).
+   - Persistencia do tamanho de pagina em localStorage.
+   - Cards de insight com limite de altura e scroll interno para nao estourar layout.
+   - Mantida igualdade visual dos cards por linha (acompanhando o maior card da linha).
+
+3) RECOMENDACOES IA (GROQ)
+   - Recomendações da IA passaram a ser geradas via Groq (nao apenas locais).
+   - Fluxo com fallback local para garantir resiliencia quando a API falhar.
+
+4) EXPERIENCIA DO USUARIO (UX)
+   - Botao de copiar adicionado no chat (pergunta/resposta/erro) e nos cards de analise IA.
+   - Clipboard com fallback (navigator.clipboard + execCommand).
+   - Feedback visual por toast ao copiar.
+   - Icone de copiar refinado para ficar discreto, menor e sem atropelar conteudo.
+   - Exibicao do copiar ajustada para hover/foco no desktop e usabilidade em mobile.
+   - Header do chat refinado: botao maximizar alinhado e proximo do botao fechar.
+   - Barra de acoes corrigida para evitar estouro de layout (inclui "Limpar Sugestoes").
+
+5) DOCUMENTACAO
+   - README atualizado com todas as melhorias de hoje.
+   - Secoes antigas alinhadas ao comportamento atual (escopo automatico, paginacao,
+     copia de respostas, recomendacoes IA via Groq).
+
+ARQUIVOS PRINCIPAIS ALTERADOS NESTA RODADA
+- js/app.js
+- js/report-engine.js
+- js/groq-service.js
+- css/styles.css
+- index.html
+- README.md
+- temp/conversa_chat/conversa.txt (este arquivo)
+
+ESTADO ATUAL VALIDADO
+- Sem erros de sintaxe nos arquivos alterados.
+- Fluxo principal operacional: filtros -> gerar relatorio -> insights/graficos/tabela -> chat.
+- Copia no chat e insights funcionando com feedback visual.
+- Controles de acao sem quebrar layout nas resolucoes testadas.
+
+PONTOS SUGERIDOS PARA A PROXIMA RETOMADA
+1) Rodar validacao visual ampla em breakpoints (desktop/tablet/mobile) com foco em
+   barra de acoes e chat flutuante.
+2) Adicionar testes automatizados basicos para parser deterministico e paginacao.
+3) Avaliar endpoint /api/health e logs resumidos para observabilidade operacional.
+
+CHECKLIST RAPIDO DE RETOMADA
+- Subir servidor (node server.js ou START_SERVER.bat)
+- Abrir http://localhost:8000
+- Gerar relatorio de Acoes
+- Validar: paginacao, recomendacoes IA, copiar no chat e insights
+- Se IA falhar: revisar GROQ_API_KEY no .env e reiniciar servidor
+
+================================================================================
+FIM DO DIARIO
+================================================================================
