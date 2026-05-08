@@ -74,7 +74,12 @@ const App = (() => {
     exportModalClose:  () => document.getElementById('exportModalClose'),
     exportModalCancel: () => document.getElementById('exportModalCancel'),
     exportModalConfirm:() => document.getElementById('exportModalConfirm'),
-    exportModalOptions:() => document.getElementById('exportModalOptions')
+    exportModalOptions:() => document.getElementById('exportModalOptions'),
+    aiExpandModal:         () => document.getElementById('aiExpandModal'),
+    aiExpandModalBackdrop: () => document.getElementById('aiExpandModalBackdrop'),
+    aiExpandModalClose:    () => document.getElementById('aiExpandModalClose'),
+    aiExpandSummary:       () => document.getElementById('aiExpandSummary'),
+    aiExpandRecs:          () => document.getElementById('aiExpandRecs')
   };
 
   function _escapeHtml(value) {
@@ -87,7 +92,185 @@ const App = (() => {
   }
 
   function _wantsTableResponse(text) {
-    return /\b(tabela|tabular|colunas|compare|comparar|matriz)\b/i.test(text || '');
+    return /\b(tabela|tabular|colunas|compare|comparar|matriz|liste|listar|listagem|mostre|quais)\b/i.test(text || '');
+  }
+
+  function _normalizeText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  function _getDeterministicActionCountAnswer(question, filteredRows) {
+    const q = String(question || '');
+    const qNorm = _normalizeText(q);
+    if (!qNorm || !Array.isArray(filteredRows)) return null;
+
+    const rows = filteredRows;
+    const formatMoney = value => new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(Number(value || 0));
+
+    const statusNorm = row => _normalizeText(row.status || '');
+    const isCanceled = row => statusNorm(row).includes('cancelad');
+    const isRefused = row => statusNorm(row).includes('recusad');
+    const isPaid = row => statusNorm(row) === 'pago';
+    const isCommitted = row => statusNorm(row).includes('comprometid');
+    const isOpen = row => {
+      const s = statusNorm(row);
+      return s.startsWith('aguardando') || s === 'reservado' || s === 'pagamento programado' || s.includes('pendente') || isCommitted(row);
+    };
+
+    const asksCount = /(quantas|quantos|qtd|quantidade|total de acoes|total de acoes|numero|número|contagem|qtas|qtos)/i.test(q);
+    const asksValue = /(valor|soma|somatorio|somatório|montante|financeiro|reais|r\$)/i.test(qNorm);
+    const asksTopDiretoria = /(qual|maior|mais|top|lider).*(diretoria)|diretoria.*(maior|mais|lider)/i.test(qNorm);
+    const asksList = /\bliste\b|\blistar\b|\blistagem\b|\bmostre\b|\bquais\b/.test(qNorm);
+    const asksChangedValue = /alterad|diferent|diverg|compar|comparar|comparacao|compara(c|ç)ao/.test(qNorm);
+
+    const statusFilters = [
+      { key: 'cancelado', label: 'Cancelado', test: /cancelad/i, fn: isCanceled },
+      { key: 'recusado', label: 'Pagamento Recusado', test: /recusad|rejeitad|negad/i, fn: isRefused },
+      { key: 'pago', label: 'Pago', test: /\bpago\b|\bpagas?\b|quitad/i, fn: isPaid },
+      { key: 'comprometido', label: 'Comprometido', test: /comprometid/i, fn: isCommitted },
+      { key: 'aberto', label: 'Pendente/Em Aberto', test: /pendente|aguardando|aberto|em aberto|programado|reservado/i, fn: isOpen }
+    ];
+
+    const selectedStatus = statusFilters.find(s => s.test.test(qNorm)) || null;
+
+    const allDiretorias = Array.from(new Set(rows.map(r => String(r.diretoria || '').trim()).filter(Boolean)));
+    const allClientes = Array.from(new Set(rows.map(r => String(r.cliente || '').trim()).filter(Boolean)));
+
+    const findBestEntity = (candidates, keyword) => {
+      const normalized = candidates
+        .map(raw => ({ raw, norm: _normalizeText(raw) }))
+        .filter(item => item.norm);
+
+      let best = null;
+
+      for (const item of normalized) {
+        const inQuestion = qNorm.includes(item.norm);
+        const inQuestionWithKeyword = qNorm.includes(`${keyword} ${item.norm}`);
+        const asWord = new RegExp(`(^|\\b)${item.norm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\b|$)`).test(qNorm);
+        if (inQuestion || inQuestionWithKeyword || asWord) {
+          if (!best || item.norm.length > best.norm.length) {
+            best = item;
+          }
+        }
+      }
+
+      return best ? best.raw : null;
+    };
+
+    const targetDiretoria = findBestEntity(allDiretorias, 'diretoria');
+    const targetCliente = findBestEntity(allClientes, 'cliente');
+    const mentionsDiretoria = /\bdiretoria\b/.test(qNorm);
+    const mentionsCliente = /\bcliente\b/.test(qNorm);
+
+    let baseRows = rows;
+    if (selectedStatus) {
+      baseRows = baseRows.filter(selectedStatus.fn);
+    }
+
+    if (targetDiretoria) {
+      baseRows = baseRows.filter(r => _normalizeText(r.diretoria) === _normalizeText(targetDiretoria));
+    }
+
+    if (targetCliente) {
+      baseRows = baseRows.filter(r => _normalizeText(r.cliente) === _normalizeText(targetCliente));
+    }
+
+    if ((mentionsDiretoria && !targetDiretoria && !asksTopDiretoria) || (mentionsCliente && !targetCliente)) {
+      if (mentionsDiretoria && !targetDiretoria && !asksTopDiretoria) {
+        return 'Nao consegui identificar qual diretoria voce mencionou. Informe a sigla exata (ex.: ASE, OBT, GRI).';
+      }
+      return 'Nao consegui identificar o cliente na pergunta. Tente informar o nome completo do cliente.';
+    }
+
+    if (asksTopDiretoria && !targetDiretoria && !targetCliente) {
+      if (!baseRows.length) {
+        const statusLabel = selectedStatus ? ` com status ${selectedStatus.label}` : '';
+        return `Com os filtros atuais, nao ha acoes${statusLabel} para agrupar por diretoria.`;
+      }
+
+      const byDir = baseRows.reduce((acc, row) => {
+        const dir = String(row.diretoria || 'Sem diretoria');
+        acc[dir] = (acc[dir] || 0) + 1;
+        return acc;
+      }, {});
+
+      const top = Object.entries(byDir).sort((a, b) => b[1] - a[1])[0];
+      if (!top) return null;
+
+      const statusLabel = selectedStatus ? ` com status ${selectedStatus.label}` : '';
+      return `Com os filtros atuais, a diretoria com mais acoes${statusLabel} e ${top[0]}, com ${top[1]} acao(oes).`;
+    }
+
+    const asksCanceledChangedList = /cancelad/.test(qNorm) && asksList && asksChangedValue;
+    if (asksCanceledChangedList) {
+      const canceledRows = baseRows.filter(isCanceled);
+      const changedRows = canceledRows.filter(row => {
+        const valorAcao = Number(row.valorAcao ?? 0);
+        const valorRealizado = Number(row.valorRealizado ?? 0);
+        if (!Number.isFinite(valorAcao) || !Number.isFinite(valorRealizado)) return false;
+        return Math.abs(valorAcao - valorRealizado) > 0.0001;
+      });
+
+      if (!changedRows.length) {
+        return 'Nao encontrei acoes canceladas com alteracao entre valor da acao e valor realizado nos filtros atuais.';
+      }
+
+      const tableRows = changedRows.slice(0, 30).map(row => {
+        const valorAcao = Number(row.valorAcao ?? 0);
+        const valorRealizado = Number(row.valorRealizado ?? 0);
+        const diferenca = valorRealizado - valorAcao;
+        return [
+          row.numAcao ?? '-',
+          row.cliente ?? '-',
+          row.diretoria ?? '-',
+          row.status ?? '-',
+          formatMoney(valorAcao),
+          formatMoney(valorRealizado),
+          formatMoney(diferenca)
+        ];
+      });
+
+      return {
+        content: `Encontrei ${changedRows.length} acao(oes) cancelada(s) com valor alterado (valor da acao diferente de valor realizado).`,
+        table: {
+          title: 'Acoes canceladas com valor alterado',
+          columns: ['Nº Ação', 'Cliente', 'Diretoria', 'Status', 'Valor da Ação', 'Valor Realizado', 'Diferença'],
+          rows: tableRows
+        }
+      };
+    }
+
+    if (!asksCount && !asksValue) return null;
+
+    const totalCount = baseRows.length;
+    const totalValue = baseRows.reduce((sum, row) => {
+      const numeric = Number(row.valorAcao ?? row.valorMeta ?? row.valorRealizado ?? 0);
+      return sum + (Number.isFinite(numeric) ? numeric : 0);
+    }, 0);
+
+    const targetLabel = targetCliente
+      ? `do cliente ${targetCliente}`
+      : targetDiretoria
+        ? `da diretoria ${targetDiretoria}`
+        : 'nos filtros atuais';
+    const statusLabel = selectedStatus ? ` com status ${selectedStatus.label}` : '';
+
+    if (asksCount && asksValue) {
+      return `Com base nos filtros atuais, ha ${totalCount} acao(oes)${statusLabel} ${targetLabel}, totalizando ${formatMoney(totalValue)}.`;
+    }
+
+    if (asksCount) {
+      return `Com base nos filtros atuais, ha ${totalCount} acao(oes)${statusLabel} ${targetLabel}.`;
+    }
+
+    return `Com base nos filtros atuais, o valor total${statusLabel} ${targetLabel} e ${formatMoney(totalValue)}.`;
   }
 
   function _parseAiResponse(rawText) {
@@ -199,6 +382,115 @@ const App = (() => {
     return Array.isArray(suggestions) ? suggestions : [];
   }
 
+  function _openAiExpandModal() {
+    console.log('[IA-Expand] Function called');
+  }
+
+  function _expandInsightCard(cardElement) {
+    console.log('[Insight-Expand] Expandindo card');
+    const modal    = document.getElementById('aiExpandModal');
+    const backdrop = document.getElementById('aiExpandModalBackdrop');
+    const btnClose = document.getElementById('aiExpandModalClose');
+    const modalBody = document.getElementById('aiExpandModalBody');
+    const titleEl = document.getElementById('aiExpandModalTitle');
+    
+    if (!modal || !modalBody) {
+      console.error('[Insight-Expand] Modal not found');
+      return;
+    }
+
+    // Clonar o card e adicionar à modal
+    const clonedCard = cardElement.cloneNode(true);
+    // Remover o botão de expandir do clone
+    clonedCard.querySelector('.insight-card__expand-btn')?.remove();
+    modalBody.innerHTML = '';
+    modalBody.appendChild(clonedCard);
+    
+    // Atualizar título com base no card
+    const cardTitle = cardElement.querySelector('.insight-card__title');
+    if (cardTitle) {
+      titleEl.textContent = cardTitle.textContent;
+    }
+
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+    console.log('[Insight-Expand] Modal opened');
+
+    const close = () => {
+      console.log('[Insight-Expand] Closing modal');
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      btnClose?.removeEventListener('click', close);
+      backdrop?.removeEventListener('click', close);
+      document.removeEventListener('keydown', onEsc);
+    };
+    const onEsc = e => { if (e.key === 'Escape') close(); };
+
+    btnClose?.addEventListener('click', close);
+    backdrop?.addEventListener('click', close);
+    document.addEventListener('keydown', onEsc);
+  }
+
+  function _expandFloatingChat() {
+    console.log('[Chat-Expand] Expandindo chat');
+    const modal = document.getElementById('chatExpandModal');
+    const backdrop = document.getElementById('chatExpandModalBackdrop');
+    const btnClose = document.getElementById('chatExpandModalClose');
+    const expandMessages = document.getElementById('chatExpandMessages');
+    const expandInput = document.getElementById('chatExpandInput');
+    const expandForm = document.getElementById('chatExpandForm');
+    const expandReport = document.getElementById('chatExpandModalReport');
+    
+    if (!modal || !expandMessages) {
+      console.error('[Chat-Expand] Modal not found');
+      return;
+    }
+
+    // Copiar mensagens do chat flutuante
+    const floatingMessages = document.getElementById('floatingChatMessages');
+    const floatingReport = document.getElementById('floatingChatReport');
+    if (floatingMessages) {
+      expandMessages.innerHTML = floatingMessages.innerHTML;
+    }
+    if (floatingReport) {
+      expandReport.textContent = floatingReport.textContent;
+    }
+
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    if (expandInput) expandInput.focus();
+    lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+    console.log('[Chat-Expand] Modal opened');
+
+    const close = () => {
+      console.log('[Chat-Expand] Closing modal');
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      btnClose?.removeEventListener('click', close);
+      backdrop?.removeEventListener('click', close);
+      expandForm?.removeEventListener('submit', onSubmit);
+      document.removeEventListener('keydown', onEsc);
+    };
+    const onEsc = e => { if (e.key === 'Escape') close(); };
+    const onSubmit = e => {
+      e.preventDefault();
+      // Enviar para o input flutuante e disparar submit
+      const floatingInput = document.getElementById('floatingChatInput');
+      const floatingForm = document.getElementById('floatingChatForm');
+      if (floatingInput && expandInput) {
+        floatingInput.value = expandInput.value;
+        expandInput.value = '';
+      }
+      if (floatingForm) floatingForm.dispatchEvent(new Event('submit'));
+    };
+
+    btnClose?.addEventListener('click', close);
+    backdrop?.addEventListener('click', close);
+    expandForm?.addEventListener('submit', onSubmit);
+    document.addEventListener('keydown', onEsc);
+  }
+
   function _openExportModal() {
     return new Promise(resolve => {
       const modal = el.exportModal();
@@ -272,6 +564,68 @@ const App = (() => {
     return state.chatThreads[reportKey];
   }
 
+  function _copyToClipboard(text, context = 'resposta') {
+    if (!text) {
+      showToast('Nada para copiar.', 'warning');
+      return;
+    }
+
+    const copyAction = async () => {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast(`${context} copiada para a área de transferência!`, 'success');
+        } catch (err) {
+          console.error('[Clipboard] Erro ao copiar:', err);
+          _fallbackCopy(text, context);
+        }
+      } else {
+        _fallbackCopy(text, context);
+      }
+    };
+
+    copyAction();
+  }
+
+  function _fallbackCopy(text, context = 'resposta') {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-999999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (success) {
+        showToast(`${context} copiada para a área de transferência!`, 'success');
+      } else {
+        showToast('Erro ao copiar. Tente novamente.', 'error');
+      }
+    } catch (err) {
+      console.error('[Clipboard] Fallback copy error:', err);
+      showToast('Erro ao copiar. Tente novamente.', 'error');
+    }
+  }
+
+  function _extractCopyTextFromBubble(bubble) {
+    const textDiv = bubble.querySelector('.chat-msg__text');
+    const table = bubble.querySelector('.ai-inline-table');
+    
+    let textContent = textDiv ? textDiv.textContent : '';
+    let tableContent = '';
+    
+    if (table) {
+      const rows = table.querySelectorAll('tr');
+      tableContent = Array.from(rows).map(row => {
+        const cells = row.querySelectorAll('th, td');
+        return Array.from(cells).map(cell => cell.textContent).join('\t');
+      }).join('\n');
+    }
+    
+    return (textContent.trim() || '') + (tableContent ? '\n\n' + tableContent : '');
+  }
+
   function _renderChatMessages() {
     const container = el.floatingChatMessages();
     if (!container) return;
@@ -290,7 +644,7 @@ const App = (() => {
     if (!thread.length) {
       const hint = document.createElement('div');
       hint.className = 'chat-msg chat-msg--assistant';
-      hint.textContent = `Contexto ativo: ${state.activeConfig.label}. Faça perguntas apenas sobre este relatório.`;
+      hint.textContent = `Contexto ativo: ${state.activeConfig.label}. Voce pode perguntar sobre qualquer entidade e a IA ajusta o escopo automaticamente.`;
       container.appendChild(hint);
       return;
     }
@@ -305,22 +659,53 @@ const App = (() => {
           <button class="chat-retry-btn" data-idx="${idx}" title="Tentar novamente">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             Tentar novamente
+          </button>
+          <button class="chat-msg__copy-btn" title="Copiar resposta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
           </button>`;
-        bubble.querySelector('.chat-retry-btn').addEventListener('click', () => {
+        const retryBtn = bubble.querySelector('.chat-retry-btn');
+        retryBtn.addEventListener('click', () => {
           const original = msg.originalText;
-          // remove the error message from thread and re-send
           const t = _ensureThread(state.activeReport);
           t.splice(idx, 1);
           el.floatingChatInput().value = original;
           _sendFloatingChatMessage();
         });
+        const copyBtn = bubble.querySelector('.chat-msg__copy-btn');
+        copyBtn.addEventListener('click', () => {
+          _copyToClipboard(msg.content, 'Erro');
+        });
       } else if (msg.role === 'assistant' && msg.table) {
         bubble.className = 'chat-msg chat-msg--assistant';
         const text = _escapeHtml(msg.content || '');
-        bubble.innerHTML = `${text ? `<div class="chat-msg__text">${text}</div>` : ''}${_buildInlineTableHtml(msg.table)}`;
+        const scopeLine = msg.scopeLabel
+          ? `<div class="chat-msg__scope">Escopo: ${_escapeHtml(msg.scopeLabel)}</div>`
+          : '';
+        bubble.innerHTML = `${scopeLine}${text ? `<div class="chat-msg__text">${text}</div>` : ''}${_buildInlineTableHtml(msg.table)}<button class="chat-msg__copy-btn" title="Copiar resposta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+          </button>`;
       } else {
         bubble.className = `chat-msg chat-msg--${msg.role}`;
-        bubble.textContent = msg.content;
+        if (msg.role === 'assistant') {
+          const scopeLine = msg.scopeLabel
+            ? `<div class="chat-msg__scope">Escopo: ${_escapeHtml(msg.scopeLabel)}</div>`
+            : '';
+          bubble.innerHTML = `${scopeLine}<div class="chat-msg__text">${_escapeHtml(msg.content || '')}</div><button class="chat-msg__copy-btn" title="Copiar resposta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+          </button>`;
+        } else {
+          bubble.innerHTML = `<div class="chat-msg__text">${_escapeHtml(msg.content)}</div><button class="chat-msg__copy-btn" title="Copiar pergunta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+          </button>`;
+        }
+      }
+
+      const copyBtn = bubble.querySelector('.chat-msg__copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          const copyText = _extractCopyTextFromBubble(bubble);
+          _copyToClipboard(copyText, msg.role === 'user' ? 'Pergunta' : 'Resposta');
+        });
       }
 
       container.appendChild(bubble);
@@ -344,7 +729,7 @@ const App = (() => {
     if (input) {
       input.disabled = disabled;
       input.placeholder = state.activeConfig
-        ? 'Pergunte sobre o relatório atual...'
+        ? 'Pergunte sobre qualquer entidade (clientes, acoes, vendas, etc.)...'
         : 'Selecione um relatório para iniciar o chat';
     }
     if (sendBtn) sendBtn.disabled = disabled;
@@ -383,29 +768,59 @@ const App = (() => {
 
     try {
       const liveFilters = collectFilters(state.activeConfig);
-      const kpis = InsightEngine.calcularKPIs(state.activeReport, state.data, liveFilters);
-      const aiContext = buildAiReportContext(state.activeReport, state.activeConfig, liveFilters);
+      const scope = _resolveQuestionScope(text, liveFilters);
+      const deterministic = scope.reportKey === 'acoes'
+        ? _getDeterministicActionCountAnswer(text, scope.rows)
+        : null;
+
+      if (deterministic) {
+        const deterministicPayload = typeof deterministic === 'string'
+          ? { content: deterministic, table: null }
+          : deterministic;
+        thread.push({
+          role: 'assistant',
+          content: deterministicPayload.content || 'Resposta gerada com base nos dados atuais.',
+          table: deterministicPayload.table || null,
+          scopeLabel: scope.config.label
+        });
+        return;
+      }
+
+      const kpis = InsightEngine.calcularKPIs(scope.reportKey, state.data, scope.filters);
       const response = await GroqService.chatAboutReport(
-        state.activeReport,
-        state.activeConfig.label,
+        scope.reportKey,
+        scope.config.label,
         kpis,
         thread,
-        aiContext,
-        { requireTable: _wantsTableResponse(text) }
+        scope.context,
+        {
+          requireTable: _wantsTableResponse(text),
+          allowCrossReport: true,
+          scopeHint: scope.scopeHint
+        }
       );
       const parsed = _parseAiResponse(response);
       thread.push({
         role: 'assistant',
         content: parsed.text || 'Não consegui responder no momento.',
-        table: parsed.table || null
+        table: parsed.table || null,
+        scopeLabel: scope.config.label
       });
     } catch (err) {
+      const reason = err && err.message ? String(err.message) : '';
+      console.error('[Chat IA] Falha ao consultar IA', {
+        error: err,
+        message: reason,
+        activeReport: state.activeReport,
+        activeConfig: state.activeConfig?.label || null,
+        userQuestion: text
+      });
       thread.push({
         role: 'error',
-        content: 'Não consegui consultar a IA agora. Verifique a conexão e tente novamente.',
+        content: 'Nao consegui conectar com a IA agora. Tente novamente em instantes.',
         originalText: text
       });
-      showToast('Erro no chat da IA. Verifique conexão e chave da API.', 'warning');
+      showToast('Nao foi possivel conectar com a IA agora. Tente novamente.', 'warning');
     } finally {
       state.chatSending = false;
       _syncChatContext();
@@ -514,14 +929,32 @@ const App = (() => {
     const grid = el.filterGrid();
     if (!grid) return;
 
+    const today = new Date();
+    const fifteenDaysAgo = new Date(today);
+    fifteenDaysAgo.setDate(today.getDate() - 15);
+    const fmtDate = d => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const defaultDateStart = fmtDate(fifteenDaysAgo);
+    const defaultDateEnd = fmtDate(today);
+
     grid.innerHTML = config.filtros.map(f => {
       const optionsHtml = buildFilterOptions(f);
+      const defaultValue = (() => {
+        if (config.key !== 'acoes') return '';
+        if (f.campo === 'dataInicialDe') return defaultDateStart;
+        if (f.campo === 'dataFinalAte') return defaultDateEnd;
+        return '';
+      })();
       return `
         <div class="filter-group">
           <label for="filter_${f.campo}">${f.label}</label>
           ${f.tipo === 'select'
             ? `<select id="filter_${f.campo}" name="${f.campo}">${optionsHtml}</select>`
-            : `<input type="${f.tipo === 'date' ? 'date' : 'text'}" id="filter_${f.campo}" name="${f.campo}" placeholder="${f.label}" />`
+            : `<input type="${f.tipo === 'date' ? 'date' : 'text'}" id="filter_${f.campo}" name="${f.campo}" placeholder="${f.label}" value="${defaultValue}" />`
           }
         </div>`;
     }).join('');
@@ -557,31 +990,133 @@ const App = (() => {
     return filters;
   }
 
+  function _compactRowForAI(row) {
+    if (!row || typeof row !== 'object') return row;
+
+    const blocked = new Set([
+      'cnpjCliente', 'cpf', 'email', 'telefone', 'endereco',
+      'dataCadastro', 'dataAlteracaoStatus', 'hash', 'checksum',
+      'descricao', 'observacoes', 'detalhes', 'metadata'
+    ]);
+
+    const compact = {};
+    Object.entries(row).forEach(([k, v]) => {
+      if (blocked.has(k)) return;
+      if (Array.isArray(v)) return;
+      if (v && typeof v === 'object') return;
+      if (typeof v === 'string' && v.length > 180) {
+        compact[k] = `${v.slice(0, 180)}...`;
+        return;
+      }
+      compact[k] = v;
+    });
+
+    return compact;
+  }
+
   function buildAiReportContext(reportKey, config, filters = {}) {
     if (!config || !state.data) return null;
 
     const rows = ReportEngine.enriquecerDados(reportKey, state.data, filters);
     const entidade = config.entidade;
-    const relacoes = Array.isArray(config.relacoes) ? config.relacoes : [];
-
-    const baseEntityRows = Array.isArray(state.data[entidade])
-      ? state.data[entidade].slice(0, 200)
-      : [];
-
-    const relatedData = {};
-    relacoes.forEach(key => {
-      const arr = state.data[key];
-      if (Array.isArray(arr)) relatedData[key] = arr.slice(0, 200);
-    });
+    const filteredRows = Array.isArray(rows) ? rows : [];
+    const compactRows = filteredRows.map(_compactRowForAI);
 
     return {
       reportKey,
       reportLabel: config.label,
       filtrosAplicados: filters,
       entidadePrincipal: entidade,
-      registrosDaEntidade: baseEntityRows,
-      registrosFiltradosDoRelatorio: rows,
-      relacoes: relatedData
+      // A IA deve analisar somente os itens filtrados no relatório ativo.
+      totalRegistrosFiltrados: filteredRows.length,
+      registrosDaEntidade: compactRows,
+      registrosFiltradosDoRelatorio: compactRows,
+      relacoes: {}
+    };
+  }
+
+  function _getQuestionEntitiesByReport() {
+    if (!state.data) return {};
+
+    const buildSet = (items, field) => new Set((items || [])
+      .map(item => String(item?.[field] || '').trim())
+      .filter(Boolean));
+
+    return {
+      clientes: buildSet(state.data.clientes, 'nome'),
+      produtos: buildSet(state.data.produtos, 'nome'),
+      funcionarios: buildSet(state.data.funcionarios, 'nome'),
+      acoesClientes: buildSet(state.data.acoes, 'cliente'),
+      acoesDiretorias: buildSet(state.data.acoes, 'diretoria'),
+      acoesResponsaveis: buildSet(state.data.acoes, 'responsavel')
+    };
+  }
+
+  function _questionMentionsAny(questionNorm, valuesSet) {
+    if (!questionNorm || !valuesSet || !valuesSet.size) return false;
+    for (const value of valuesSet) {
+      const norm = _normalizeText(value);
+      if (!norm) continue;
+      if (questionNorm.includes(norm)) return true;
+    }
+    return false;
+  }
+
+  function _detectReportFromQuestion(question) {
+    const q = String(question || '');
+    const qNorm = _normalizeText(q);
+    if (!qNorm) return null;
+
+    const has = regex => regex.test(qNorm);
+    const entities = _getQuestionEntitiesByReport();
+
+    // Heuristica para ambiguidade: "notas canceladas" + sinais de valor de acao
+    // normalmente significa acoes comerciais, nao notas fiscais.
+    const asksCanceledNotes = has(/\bnotas?\b.*cancelad|cancelad.*\bnotas?\b/);
+    const asksActionValueSignals = has(/valor(es)? alterad|valor realizado|valor da acao|valor acao|acao.*realizad|realizad.*acao/);
+    if (asksCanceledNotes && asksActionValueSignals) return 'acoes';
+
+    const asksAcoesByKeyword = has(/\bacao\b|\bacoes\b|\bdiretoria\b|\bdivisao\b|\bresponsavel\b|comprometid|pagamento recusado|recusad|valor da acao|valor acao/);
+    const asksAcoesByEntity = _questionMentionsAny(qNorm, entities.acoesClientes)
+      || _questionMentionsAny(qNorm, entities.acoesDiretorias)
+      || _questionMentionsAny(qNorm, entities.acoesResponsaveis);
+
+    if (asksAcoesByKeyword || asksAcoesByEntity) return 'acoes';
+    if (has(/nota fiscal|notas fiscais|\bnf\b|imposto|faturamento/)) return 'notasFiscais';
+    if (has(/\bpedido\b|\bpedidos\b|\bvenda\b|\bvendas\b|ticket medio|ticket médio/)) return 'vendas';
+    if (has(/estoque|deposito|depósito|criticidade|minimo|maximo|zerado/)) return 'estoque';
+    if (has(/funcionario|funcionarios|colaborador|colaboradores|setor|salario|folha/)) return 'funcionarios';
+    if (has(/produto|produtos|categoria|marca|margem/)) return 'produtos';
+
+    if (_questionMentionsAny(qNorm, entities.clientes)) return 'clientes';
+    if (_questionMentionsAny(qNorm, entities.produtos)) return 'produtos';
+    if (_questionMentionsAny(qNorm, entities.funcionarios)) return 'funcionarios';
+
+    return null;
+  }
+
+  function _resolveQuestionScope(question, activeFilters = {}) {
+    const fallbackKey = state.activeReport;
+    const detectedKey = _detectReportFromQuestion(question);
+    const resolvedKey = detectedKey || fallbackKey;
+    const resolvedConfig = REPORT_CONFIG_MAP[resolvedKey] || state.activeConfig;
+
+    const sameAsActive = resolvedKey === state.activeReport;
+    const resolvedFilters = sameAsActive ? activeFilters : {};
+    const rows = ReportEngine.enriquecerDados(resolvedKey, state.data, resolvedFilters);
+    const context = buildAiReportContext(resolvedKey, resolvedConfig, resolvedFilters);
+
+    const scopeHint = sameAsActive
+      ? `Escopo ativo: ${resolvedConfig.label}`
+      : `Escopo detectado automaticamente pela pergunta: ${resolvedConfig.label}`;
+
+    return {
+      reportKey: resolvedKey,
+      config: resolvedConfig,
+      filters: resolvedFilters,
+      rows,
+      context,
+      scopeHint
     };
   }
 
@@ -748,7 +1283,7 @@ const App = (() => {
 
     state.isLoading = true;
     state.filters   = collectFilters(state.activeConfig);
-    state.question  = el.aiQuestion()?.value?.trim() || '';
+    state.question  = '';
 
     // Atualizar header
     const rows = ReportEngine.enriquecerDados(state.activeReport, state.data, state.filters);
@@ -767,20 +1302,50 @@ const App = (() => {
     const kpiValues = InsightEngine.calcularKPIs(state.activeReport, state.data, state.filters);
     ReportEngine.renderKPIs(state.activeConfig, kpiValues);
 
+    // Ler a pergunta somente depois que a base filtrada do relatório já foi gerada.
+    state.question = el.aiQuestion()?.value?.trim() || '';
+
     // Insights IA (análise local determinística)
     const insights = InsightEngine.gerarInsights(state.activeReport, state.data, state.filters, state.question);
 
     // Groq: substitui o card de pergunta por resposta real da IA
     if (state.question) {
       try {
-        const aiContext = buildAiReportContext(state.activeReport, state.activeConfig, state.filters);
+        const scope = _resolveQuestionScope(state.question, state.filters);
+        const deterministic = scope.reportKey === 'acoes'
+          ? _getDeterministicActionCountAnswer(state.question, scope.rows)
+          : null;
+
+        if (deterministic) {
+          const deterministicPayload = typeof deterministic === 'string'
+            ? { content: deterministic, table: null }
+            : deterministic;
+          const groqCard = {
+            tipo: 'ai', icone: 'sparkles',
+            titulo: 'Análise IA · Groq',
+            texto: deterministicPayload.content || 'Resposta gerada com base nos dados atuais.',
+            table: deterministicPayload.table || null,
+            valor: '',
+            scopeLabel: scope.config.label,
+            _isPerguntaResult: true
+          };
+          const genericIdx = insights.findIndex(i => i.titulo === 'Análise da Pergunta');
+          if (genericIdx >= 0) insights.splice(genericIdx, 1);
+          const idx = insights.findIndex(i => i._isPerguntaResult);
+          if (idx >= 0) insights[idx] = groqCard;
+          else insights.unshift(groqCard);
+        } else {
         const groqText = await GroqService.chatAboutReport(
-          state.activeReport,
-          state.activeConfig.label,
-          kpiValues,
+          scope.reportKey,
+          scope.config.label,
+          InsightEngine.calcularKPIs(scope.reportKey, state.data, scope.filters),
           [{ role: 'user', content: state.question }],
-          aiContext,
-          { requireTable: _wantsTableResponse(state.question) }
+          scope.context,
+          {
+            requireTable: _wantsTableResponse(state.question),
+            allowCrossReport: true,
+            scopeHint: scope.scopeHint
+          }
         );
         const parsed = _parseAiResponse(groqText);
         const groqCard = {
@@ -789,6 +1354,7 @@ const App = (() => {
           texto: parsed.text || groqText,
           table: parsed.table || null,
           valor: '',
+          scopeLabel: scope.config.label,
           _isPerguntaResult: true
         };
         const genericIdx = insights.findIndex(i => i.titulo === 'Análise da Pergunta');
@@ -796,8 +1362,10 @@ const App = (() => {
         const idx = insights.findIndex(i => i._isPerguntaResult);
         if (idx >= 0) insights[idx] = groqCard;
         else insights.unshift(groqCard);
+        }
       } catch (err) {
-        showToast('IA Cloud indisponível. Exibindo análise local.', 'warning');
+        const reason = err && err.message ? String(err.message) : '';
+        showToast(reason || 'IA Cloud indisponivel. Exibindo analise local.', 'warning');
       }
     }
 
@@ -815,7 +1383,21 @@ const App = (() => {
     ReportEngine.renderSummary(resumo);
 
     // Recomendações da IA
-    const recs = InsightEngine.gerarRecomendacoes(state.activeReport, state.data, state.filters);
+    let recs = InsightEngine.gerarRecomendacoes(state.activeReport, state.data, state.filters);
+    try {
+      const recContext = buildAiReportContext(state.activeReport, state.activeConfig, state.filters);
+      const aiRecs = await GroqService.recommendActions(
+        state.activeReport,
+        state.activeConfig.label,
+        kpiValues,
+        recContext
+      );
+      if (Array.isArray(aiRecs) && aiRecs.length) {
+        recs = aiRecs;
+      }
+    } catch (err) {
+      console.warn('[Recommendations IA] Fallback local ativado', err);
+    }
     ReportEngine.renderRecommendations(recs);
 
     state.isLoading = false;
@@ -862,9 +1444,27 @@ const App = (() => {
     el.btnClearFilters()?.addEventListener('click', () => {
       const config = state.activeConfig;
       if (!config) return;
+      const today = new Date();
+      const fifteenDaysAgo = new Date(today);
+      fifteenDaysAgo.setDate(today.getDate() - 15);
+      const fmtDate = d => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
       config.filtros.forEach(f => {
         const input = document.getElementById(`filter_${f.campo}`);
-        if (input) input.value = '';
+        if (!input) return;
+        if (config.key === 'acoes' && f.campo === 'dataInicialDe') {
+          input.value = fmtDate(fifteenDaysAgo);
+          return;
+        }
+        if (config.key === 'acoes' && f.campo === 'dataFinalAte') {
+          input.value = fmtDate(today);
+          return;
+        }
+        input.value = '';
       });
       el.aiQuestion().value = '';
       toggleClearBtn('');
@@ -900,12 +1500,30 @@ const App = (() => {
       _searchDebounce = setTimeout(() => ReportEngine.filterTable(query), 200);
     });
 
+    document.getElementById('tablePageSize')?.addEventListener('change', e => {
+      ReportEngine.setPageSize(e.target.value);
+    });
+
     // Reset ordem do menu
     document.getElementById('resetMenuOrder')?.addEventListener('click', () => {
       if (confirm('Deseja resetar a ordem dos relatórios para o padrão?')) {
         DragDropMenu.resetMenuOrder();
       }
     });
+
+    // Botão de expandir chat flutuante
+    document.getElementById('floatingChatExpand')?.addEventListener('click', _expandFloatingChat);
+
+    // Botões de expandir cards de insight (event delegation)
+    document.addEventListener('click', e => {
+      const expandBtn = e.target.closest('.insight-card__expand-btn');
+      if (expandBtn) {
+        const card = expandBtn.closest('.insight-card');
+        if (card) {
+          _expandInsightCard(card);
+        }
+      }
+    }, { passive: false });
 
     // Enter no campo do chat flutuante
     el.floatingChatInput()?.addEventListener('keydown', e => {
@@ -1096,5 +1714,5 @@ const App = (() => {
   // Bootstrap
   document.addEventListener('DOMContentLoaded', init);
 
-  return { showToast };
+  return { showToast, _copyToClipboard, _fallbackCopy };
 })();

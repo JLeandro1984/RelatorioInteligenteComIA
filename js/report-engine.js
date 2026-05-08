@@ -9,6 +9,8 @@
 
 const ReportEngine = (() => {
 
+  const TABLE_PAGE_SIZE_STORAGE_KEY = 'relatorio_table_page_size_v1';
+
   /* ─────────────────────────────────────────────────────
      FORMATADORES
   ───────────────────────────────────────────────────── */
@@ -172,6 +174,12 @@ const ReportEngine = (() => {
 
     if (reportKey === 'acoes') {
       rows = (dados.acoes || []).filter(a => {
+        const startDate = filtros.dataInicialDe ? new Date(`${filtros.dataInicialDe}T00:00:00`) : null;
+        const endDate = filtros.dataFinalAte ? new Date(`${filtros.dataFinalAte}T23:59:59`) : null;
+        const cadastroDate = a.dataCadastro ? new Date(`${a.dataCadastro}T12:00:00`) : null;
+
+        if (startDate && cadastroDate && cadastroDate < startDate) return false;
+        if (endDate && cadastroDate && cadastroDate > endDate) return false;
         if (filtros.status      && a.status      !== filtros.status)      return false;
         if (filtros.diretoria   && a.diretoria   !== filtros.diretoria)   return false;
         if (filtros.divisao     && a.divisao     !== filtros.divisao)     return false;
@@ -264,12 +272,19 @@ const ReportEngine = (() => {
 
     const iconMap = { icone: '' };
     container.innerHTML = insights.map((ins, idx) => `
-      <div class="insight-card insight-card--${ins.tipo || 'info'}" style="animation-delay:${idx * 60}ms">
+      <div class="insight-card insight-card--${ins.tipo || 'info'}" style="animation-delay:${idx * 60}ms" data-insight-idx="${idx}">
+        <button type="button" class="insight-card__expand-btn" aria-label="Expandir insight" title="Clique para expandir">
+          <i data-lucide="maximize-2"></i>
+        </button>
+        <button type="button" class="insight-card__copy-btn" aria-label="Copiar insight" title="Copiar para a área de transferência">
+          <i data-lucide="copy"></i>
+        </button>
         <div class="insight-card__icon">
           <i data-lucide="${ins.icone || 'lightbulb'}"></i>
         </div>
         <div class="insight-card__body">
           <div class="insight-card__title">${ins.titulo}</div>
+          ${ins.scopeLabel ? `<div class="insight-card__scope">Escopo: ${escapeHtml(ins.scopeLabel)}</div>` : ''}
           <div class="insight-card__text">${ins.texto}</div>
           ${renderInlineTable(ins.table)}
           ${ins.valor ? `<div class="insight-card__value">${ins.valor}</div>` : ''}
@@ -277,6 +292,40 @@ const ReportEngine = (() => {
       </div>`).join('');
 
     lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+    
+    // Adicionar event listeners para os botões de copiar
+    container.querySelectorAll('.insight-card__copy-btn').forEach((btn, idx) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const card = btn.closest('.insight-card');
+        if (!card) return;
+        
+        const titleEl = card.querySelector('.insight-card__title');
+        const textEl = card.querySelector('.insight-card__text');
+        const valueEl = card.querySelector('.insight-card__value');
+        const table = card.querySelector('.ai-inline-table');
+        
+        let copyText = '';
+        if (titleEl) copyText += titleEl.textContent;
+        if (textEl) copyText += '\n' + textEl.textContent;
+        if (table) {
+          const rows = table.querySelectorAll('tr');
+          const tableText = Array.from(rows).map(row => {
+            const cells = row.querySelectorAll('th, td');
+            return Array.from(cells).map(cell => cell.textContent).join('\t');
+          }).join('\n');
+          copyText += '\n\n' + tableText;
+        }
+        if (valueEl) copyText += '\n\n' + valueEl.textContent;
+        
+        if (copyText.trim()) {
+          App._copyToClipboard(copyText.trim(), 'Insight');
+        } else {
+          App.showToast('Nada para copiar.', 'warning');
+        }
+      });
+    });
+    
     section.style.display = 'block';
   }
 
@@ -352,30 +401,59 @@ const ReportEngine = (() => {
   ───────────────────────────────────────────────────── */
   let _currentRows   = [];
   let _currentCols   = [];
+  let _filteredRows  = [];
   let _sortCol       = null;
   let _sortDir       = 'asc';
+  let _pageSize      = 20;
+  let _currentPage   = 1;
+
+  function _loadSavedPageSize() {
+    try {
+      const raw = localStorage.getItem(TABLE_PAGE_SIZE_STORAGE_KEY);
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) return 20;
+      if (![10, 20, 50, 100].includes(parsed)) return 20;
+      return parsed;
+    } catch (_) {
+      return 20;
+    }
+  }
+
+  function _savePageSize(size) {
+    try {
+      localStorage.setItem(TABLE_PAGE_SIZE_STORAGE_KEY, String(size));
+    } catch (_) {
+      // localStorage pode estar indisponível; segue sem persistir.
+    }
+  }
 
   function renderTable(config, rows) {
     const section  = document.getElementById('tableSection');
     const thead    = document.getElementById('tableHead');
     const tbody    = document.getElementById('tableBody');
     const countEl  = document.getElementById('tableCount');
+    const pageSizeEl = document.getElementById('tablePageSize');
     if (!section || !thead || !tbody) return;
 
     _currentRows = rows;
     _currentCols = config.colunas;
+    _currentPage = 1;
+    _pageSize = _loadSavedPageSize();
+    if (pageSizeEl) {
+      pageSizeEl.value = String(_pageSize);
+    }
 
     if (!rows.length) {
       thead.innerHTML = '';
       tbody.innerHTML = `<tr><td colspan="99" class="table-empty">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
       countEl.textContent = '0 registros';
+      _renderPagination(0);
       section.style.display = 'block';
       return;
     }
 
-    countEl.textContent = `${rows.length} registro${rows.length > 1 ? 's' : ''}`;
     _buildTableHead(config.colunas);
-    _buildTableBody(rows, config.colunas);
+    _applyTableState(document.getElementById('tableSearch')?.value || '');
     section.style.display = 'block';
   }
 
@@ -393,15 +471,82 @@ const ReportEngine = (() => {
         const col = th.dataset.col;
         _sortDir  = (_sortCol === col && _sortDir === 'asc') ? 'desc' : 'asc';
         _sortCol  = col;
-        const sorted = _sortRows(_currentRows, col, _sortDir);
         _buildTableHead(_currentCols);
-        _buildTableBody(sorted, _currentCols);
+        _applyTableState(document.getElementById('tableSearch')?.value || '');
       });
+    });
+  }
+
+  function _applyTableState(query = '') {
+    const countEl = document.getElementById('tableCount');
+    const normalized = String(query || '').toLowerCase();
+
+    const filtered = normalized
+      ? _currentRows.filter(row =>
+          Object.values(row).some(v => String(v).toLowerCase().includes(normalized))
+        )
+      : [..._currentRows];
+
+    _filteredRows = _sortCol ? _sortRows(filtered, _sortCol, _sortDir) : filtered;
+
+    const total = _filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / _pageSize));
+    if (_currentPage > totalPages) _currentPage = totalPages;
+
+    const start = total ? (_currentPage - 1) * _pageSize : 0;
+    const end = Math.min(start + _pageSize, total);
+    const pageRows = _filteredRows.slice(start, end);
+
+    _buildTableBody(pageRows, _currentCols);
+
+    if (countEl) {
+      const filterSuffix = normalized ? ' (filtrado)' : '';
+      if (!total) {
+        countEl.textContent = `0 registros${filterSuffix}`;
+      } else {
+        countEl.textContent = `Mostrando ${start + 1}-${end} de ${total} registro${total > 1 ? 's' : ''}${filterSuffix}`;
+      }
+    }
+
+    _renderPagination(totalPages);
+  }
+
+  function _renderPagination(totalPages) {
+    const paginationEl = document.getElementById('tablePagination');
+    if (!paginationEl) return;
+
+    if (!totalPages || totalPages <= 1) {
+      paginationEl.innerHTML = '';
+      return;
+    }
+
+    const isFirst = _currentPage <= 1;
+    const isLast = _currentPage >= totalPages;
+    paginationEl.innerHTML = `
+      <button class="table-page-btn" data-page-action="prev" ${isFirst ? 'disabled' : ''}>Anterior</button>
+      <span class="table-page-status">Pagina ${_currentPage} de ${totalPages}</span>
+      <button class="table-page-btn" data-page-action="next" ${isLast ? 'disabled' : ''}>Proxima</button>
+    `;
+
+    paginationEl.querySelector('[data-page-action="prev"]')?.addEventListener('click', () => {
+      if (_currentPage <= 1) return;
+      _currentPage -= 1;
+      _applyTableState(document.getElementById('tableSearch')?.value || '');
+    });
+
+    paginationEl.querySelector('[data-page-action="next"]')?.addEventListener('click', () => {
+      if (_currentPage >= totalPages) return;
+      _currentPage += 1;
+      _applyTableState(document.getElementById('tableSearch')?.value || '');
     });
   }
 
   function _buildTableBody(rows, cols) {
     const tbody = document.getElementById('tableBody');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="${Math.max(1, cols.length)}" class="table-empty">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
+      return;
+    }
     tbody.innerHTML = rows.map(row => `
       <tr>${cols.map(col => {
         const raw      = row[col.campo];
@@ -421,16 +566,17 @@ const ReportEngine = (() => {
   }
 
   function filterTable(query) {
-    if (!_currentRows.length) return;
-    const q = query.toLowerCase();
-    const filtered = q
-      ? _currentRows.filter(row =>
-          Object.values(row).some(v => String(v).toLowerCase().includes(q))
-        )
-      : _currentRows;
-    document.getElementById('tableCount').textContent =
-      `${filtered.length} registro${filtered.length > 1 ? 's' : ''} (filtrado)`;
-    _buildTableBody(filtered, _currentCols);
+    _currentPage = 1;
+    _applyTableState(query);
+  }
+
+  function setPageSize(size) {
+    const parsed = Number(size);
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    _pageSize = parsed;
+    _savePageSize(parsed);
+    _currentPage = 1;
+    _applyTableState(document.getElementById('tableSearch')?.value || '');
   }
 
   /* ─────────────────────────────────────────────────────
@@ -504,6 +650,7 @@ const ReportEngine = (() => {
     renderRecommendations,
     renderHeader,
     enriquecerDados,
-    filterTable
+    filterTable,
+    setPageSize
   };
 })();

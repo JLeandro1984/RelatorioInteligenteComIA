@@ -526,7 +526,7 @@ const InsightEngine = (() => {
     const acoes      = dados.acoes || [];
     const valorTotal = acoes.reduce((s, a) => s + a.valorAcao, 0);
     const pagas      = acoes.filter(a => a.status === 'Pago');
-    const pendentes  = acoes.filter(a => a.status.startsWith('Aguardando'));
+    const pendentes  = acoes.filter(a => a.status.startsWith('Aguardando') || a.status === 'Reservado' || a.status === 'Pagamento Programado');
     const canceladas = acoes.filter(a => a.status === 'Cancelado');
     const recusadas  = acoes.filter(a => a.status === 'Pagamento Recusado');
 
@@ -536,7 +536,7 @@ const InsightEngine = (() => {
     const topResp = topEntry(contarPorCampo(acoes, 'responsavel'));
 
     const hoje = new Date().toISOString().split('T')[0];
-    const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação'];
+    const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação','Aguardando Bonificação','Aguardando análise de pgto.','Aguardando Conciliação','Reservado','Pagamento Programado'];
     const atrasadas = acoes.filter(a => a.dataFinal < hoje && STATUS_ABERTO.includes(a.status));
 
     return [
@@ -819,9 +819,9 @@ const InsightEngine = (() => {
     },
     acoes(dados) {
       const acoes = dados.acoes || [];
-      const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação'];
+      const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação','Aguardando Bonificação','Aguardando análise de pgto.','Aguardando Conciliação','Reservado','Pagamento Programado'];
       const hoje      = new Date().toISOString().split('T')[0];
-      const pendentes = acoes.filter(a => a.status.startsWith('Aguardando'));
+      const pendentes = acoes.filter(a => a.status.startsWith('Aguardando') || a.status === 'Reservado' || a.status === 'Pagamento Programado');
       const recusadas = acoes.filter(a => a.status === 'Pagamento Recusado');
       const atrasadas = acoes.filter(a => a.dataFinal < hoje && STATUS_ABERTO.includes(a.status));
       const recs = [];
@@ -862,6 +862,7 @@ const InsightEngine = (() => {
      API PÚBLICA
   ───────────────────────────────────────────────────── */
   function gerarInsights(reportKey, dados, filtros, pergunta) {
+    const d = _aplicarFiltros(reportKey, dados, filtros || {});
     const gerador = {
       clientes:     gerarInsightsClientes,
       produtos:     gerarInsightsProdutos,
@@ -872,7 +873,7 @@ const InsightEngine = (() => {
       acoes:        gerarInsightsAcoes
     }[reportKey];
 
-    let insights = gerador ? gerador(dados, filtros) : [];
+    let insights = gerador ? gerador(d, filtros) : [];
 
     // Tratar pergunta do usuário
     if (pergunta && pergunta.trim()) {
@@ -882,15 +883,14 @@ const InsightEngine = (() => {
         if (handler) {
           let resultado = null;
           if (['getMaisVendido','getClienteTop','getFuncionarioDestaque'].includes(intencao.handler)) {
-            resultado = handler(analisarVendas(dados));
+            resultado = handler(analisarVendas(d));
           } else if (intencao.handler === 'getEstoqueBaixo') {
-            resultado = handler(analisarEstoque(dados));
+            resultado = handler(analisarEstoque(d));
           } else if (intencao.handler === 'getMaiorNF') {
-            resultado = handler(analisarNFs(dados));
+            resultado = handler(analisarNFs(d));
           } else if (intencao.handler === 'getMaiorMargem') {
-            resultado = handler(analisarProdutos(dados));
+            resultado = handler(analisarProdutos(d));
           } else if (intencao.handler === 'getItensAtivos') {
-            const d = _aplicarFiltros(reportKey, dados, filtros || {});
             resultado = handler({ reportKey, dados: d });
           }
           if (resultado) {
@@ -899,12 +899,23 @@ const InsightEngine = (() => {
           }
         }
       } else {
+        const registrosFiltrados = (() => {
+          if (reportKey === 'clientes') return (d.clientes || []).length;
+          if (reportKey === 'produtos') return (d.produtos || []).length;
+          if (reportKey === 'estoque') return (d.estoque || []).length;
+          if (reportKey === 'funcionarios') return (d.funcionarios || []).length;
+          if (reportKey === 'notasFiscais') return (d.notasFiscais || []).length;
+          if (reportKey === 'vendas') return (d.pedidos || []).length;
+          if (reportKey === 'acoes') return (d.acoes || []).length;
+          return 0;
+        })();
+
         // Resposta genérica quando não identifica intenção
         insights.unshift({
           tipo: 'info', icone: 'message-square-more',
           titulo: 'Análise da Pergunta',
-          texto: `Com base nos dados disponíveis para "${pergunta}": não foi possível mapear uma intenção específica, mas os insights abaixo cobrem os principais indicadores.`,
-          valor: ''
+          texto: `Com base nos dados filtrados para "${pergunta}": não foi possível mapear uma intenção específica, mas os insights abaixo cobrem os principais indicadores.`,
+          valor: `${registrosFiltrados} registro(s) filtrado(s) considerado(s).`,
         });
       }
     }
@@ -939,6 +950,9 @@ const InsightEngine = (() => {
             String(c.ativo) !== filtros.ativo) return false;
         return true;
       });
+      const clienteIds = new Set(d.clientes.map(c => c.id));
+      d.pedidos = (dados.pedidos || []).filter(p => clienteIds.has(p.clienteId));
+      d.notasFiscais = (dados.notasFiscais || []).filter(nf => clienteIds.has(nf.clienteId));
     } else if (reportKey === 'produtos') {
       d.produtos = dados.produtos.filter(p => {
         if (filtros.categoria && p.categoria !== filtros.categoria) return false;
@@ -964,6 +978,8 @@ const InsightEngine = (() => {
             String(f.ativo) !== filtros.ativo) return false;
         return true;
       });
+      const funcionarioIds = new Set(d.funcionarios.map(f => f.id));
+      d.pedidos = (dados.pedidos || []).filter(p => funcionarioIds.has(p.funcionarioId));
     } else if (reportKey === 'notasFiscais') {
       d.notasFiscais = dados.notasFiscais.filter(nf => {
         if (filtros.status && nf.status !== filtros.status) return false;
@@ -976,17 +992,23 @@ const InsightEngine = (() => {
         if (filtros.mes    && !p.data.startsWith(`2026-${filtros.mes}`)) return false;
         return true;
       });
-  } else if (reportKey === 'acoes') {
-    d.acoes = (dados.acoes || []).filter(a => {
-      if (filtros.status      && a.status      !== filtros.status)      return false;
-      if (filtros.diretoria   && a.diretoria   !== filtros.diretoria)   return false;
-      if (filtros.divisao     && a.divisao     !== filtros.divisao)     return false;
-      if (filtros.responsavel && a.responsavel !== filtros.responsavel) return false;
-      return true;
-    });
+    } else if (reportKey === 'acoes') {
+      d.acoes = (dados.acoes || []).filter(a => {
+        const startDate = filtros.dataInicialDe ? new Date(`${filtros.dataInicialDe}T00:00:00`) : null;
+        const endDate = filtros.dataFinalAte ? new Date(`${filtros.dataFinalAte}T23:59:59`) : null;
+        const cadastroDate = a.dataCadastro ? new Date(`${a.dataCadastro}T12:00:00`) : null;
+
+        if (startDate && cadastroDate && cadastroDate < startDate) return false;
+        if (endDate && cadastroDate && cadastroDate > endDate) return false;
+        if (filtros.status      && a.status      !== filtros.status)      return false;
+        if (filtros.diretoria   && a.diretoria   !== filtros.diretoria)   return false;
+        if (filtros.divisao     && a.divisao     !== filtros.divisao)     return false;
+        if (filtros.responsavel && a.responsavel !== filtros.responsavel) return false;
+        return true;
+      });
+    }
+    return d;
   }
-  return d;
-}
 
   function calcularKPIs(reportKey, dados, filtros = {}) {
     const d = _aplicarFiltros(reportKey, dados, filtros);
@@ -1051,7 +1073,7 @@ const InsightEngine = (() => {
     }
     if (reportKey === 'acoes') {
       const acoes = d.acoes || [];
-      const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação'];
+      const STATUS_ABERTO = ['Comprometido','Aguardando aprovação da ação','Aguardando Liberação de verba','Aguardando Acordo','Aguardando Comprovação','Aguardando Bonificação','Aguardando análise de pgto.','Aguardando Conciliação','Reservado','Pagamento Programado'];
       return {
         totalAcoes:    acoes.length,
         valorTotal:    acoes.reduce((s, a) => s + a.valorAcao, 0),

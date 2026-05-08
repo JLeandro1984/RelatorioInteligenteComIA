@@ -333,6 +333,8 @@ const REPORT_CONFIGS = [
     relacoes: [],
 
     filtros: [
+      { campo: 'dataInicialDe', label: 'Cadastro (de)', tipo: 'date' },
+      { campo: 'dataFinalAte',  label: 'Cadastro (até)',  tipo: 'date' },
       { campo: 'status',      label: 'Status',      tipo: 'select', opcoesDe: 'acoes.status' },
       { campo: 'diretoria',   label: 'Diretoria',   tipo: 'select', opcoesDe: 'acoes.diretoria' },
       { campo: 'divisao',     label: 'Divisão',     tipo: 'select', opcoesDe: 'acoes.divisao' },
